@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL MASTER: MQTT EDITION</title>
+    <title>TACTICAL MASTER: PEER FINAL</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
 
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
     <style>
-        /* --- GÖRSEL TASARIM (AYNEN KORUNDU) --- */
+        /* --- GÖRSEL TASARIM --- */
         :root { --grass-light: #4b8b3b; --grass-dark: #3a702e; --line-white: rgba(255,255,255,0.85); --net-pattern: rgba(255,255,255,0.15); --kit-atk-primary: #d32f2f; --kit-atk-secondary: #b71c1c; --kit-def-primary: #1976d2; --kit-def-secondary: #0d47a1; --ui-bg: #1e293b; --ui-border: #334155; --gold: #fbbf24; }
         * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; min-height: 100vh; background: #111 radial-gradient(circle at 50% 30%, #2c3e50 0%, #000000 90%) fixed; color: #fff; font-family: 'Rajdhani', sans-serif; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
@@ -70,6 +70,7 @@
         #bottom-wait-bar.hidden { transform: translate(-50%, 200%); }
         #bottom-wait-text { font-size: 1.1em; font-weight: bold; color: #fff; letter-spacing: 1px; }
 
+        /* Hata Gösterimi */
         #error-overlay { position: fixed; top: 0; left: 0; width: 100%; background: #b91c1c; color: white; text-align: center; padding: 5px; z-index: 99999; display: none; font-size: 0.8em; }
     </style>
 </head>
@@ -113,7 +114,7 @@
             <div id="join-panel" class="hidden">
                 <p>Oda Kodunu Gir:</p>
                 <input type="text" id="room-code-input" class="input-box" placeholder="XXXXX">
-                <button class="btn" id="btn-join" onclick="joinRoom()">BAĞLAN</button>
+                <button class="btn" id="btn-connect" onclick="joinRoom()">BAĞLAN</button>
                 <button class="btn btn-secondary" onclick="resetLobby()">GERİ</button>
             </div>
         </div>
@@ -138,134 +139,52 @@
 
     <script>
         // =================================================================
-        // 1. ÖNCELİKLİ TANIMLAMALAR (HATALARI ÖNLER)
+        // 1. DEĞİŞKEN TANIMLARI (EN BAŞTA - HATA ÖNLEME)
         // =================================================================
-        
-        // Global Değişkenler
-        var client = null;
-        var myRole = null;
-        var currentRoom = null;
+        var peer = null;
+        var conn = null;
+        var myPeerId = null;
         var isHost = false;
-        var connected = false;
+        var myRole = null;
         var gameState = { phase: 'INIT', players: [], ballOwnerId: null, selectedUnit: null, moves: { atk: null, def: null } };
         
-        // Sabitler
-        const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt'; // Ücretsiz MQTT Sunucusu
-        const ROWS = 7; const COLS = 5; let scenIdx = 0;
-        const SCENARIOS = [
-            { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
-            { atk: [{r:6,c:2,l:'6'}, {r:4,c:0,l:'11'}, {r:4,c:4,l:'7'}, {r:5,c:2,l:'10'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:0,l:'2'}, {r:2,c:4,l:'3'}, {r:2,c:2,l:'4'}] },
-            { atk: [{r:6,c:1,l:'4'}, {r:6,c:3,l:'5'}, {r:5,c:2,l:'8'}, {r:2,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'4'}, {r:1,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
-            { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
-        ];
-
-        // Yardımcılar
+        // Yardımcı Fonksiyonlar
         function el(id) { return document.getElementById(id); }
         function show(id) { if(el(id)) el(id).classList.remove('hidden'); }
         function hide(id) { if(el(id)) el(id).classList.add('hidden'); }
 
-        // Hata Yakalayıcı
-        window.onerror = function(msg) { 
-            if(el('error-overlay')) {
-                el('error-overlay').style.display = 'block'; 
-                el('error-overlay').innerText = `HATA: ${msg}`; 
-            }
-            return false; 
-        };
-
         // ========================================================
-        // 2. MQTT BAĞLANTI MANTIĞI (SERVER YOK, FIREBASE YOK)
+        // 2. BAĞLANTI SİSTEMİ (GOOGLE STUN SUNUCULARI İLE GÜÇLENDİRİLDİ)
         // ========================================================
-        
-        function connectMQTT(roomId) {
-            const clientId = 'tm_' + Math.random().toString(16).substr(2, 8);
-            // MQTT bağlantısını başlat
-            client = mqtt.connect(BROKER_URL, { clientId: clientId });
-
-            client.on('connect', () => {
-                connected = true;
-                console.log("MQTT Bağlandı");
-                
-                // Odayı dinlemeye başla
-                client.subscribe(`tactical_master/${roomId}`, (err) => {
-                    if(!err) {
-                        if(!isHost) {
-                            // Guest katıldığını haber verir
-                            sendData({ type: 'JOIN_REQUEST' });
-                        }
-                    }
-                });
+        function initPeer() {
+            peer = new Peer(null, {
+                debug: 2,
+                config: {
+                    'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            });
+            
+            peer.on('open', (id) => {
+                myPeerId = id;
+                if(el('my-id-display')) el('my-id-display').innerText = id;
             });
 
-            client.on('message', (topic, message) => {
-                try {
-                    const data = JSON.parse(message.toString());
-                    handleData(data);
-                } catch(e) { console.error("Veri hatası", e); }
+            peer.on('connection', (c) => {
+                if(!isHost) return;
+                conn = c;
+                setupHostConnection();
             });
 
-            client.on('error', (err) => { 
-                alert("Bağlantı hatası! Sayfayı yenile."); 
+            peer.on('error', (err) => {
+                alert("Bağlantı Hatası: " + err.type);
+                if(el('btn-connect')) { 
+                    el('btn-connect').innerText = "BAĞLAN"; 
+                    el('btn-connect').disabled = false; 
+                }
             });
-        }
-
-        function sendData(payload) {
-            if(client && connected) {
-                payload.sender = isHost ? 'HOST' : 'GUEST';
-                client.publish(`tactical_master/${currentRoom}`, JSON.stringify(payload));
-            }
-        }
-
-        function handleData(data) {
-            // Kendi gönderdiğim mesajları yoksay
-            if (isHost && data.sender === 'HOST') return;
-            if (!isHost && data.sender === 'GUEST') return;
-
-            switch(data.type) {
-                case 'JOIN_REQUEST':
-                    if(isHost) {
-                        const guestRole = (myRole === 'atk') ? 'def' : 'atk';
-                        sendData({ type: 'JOIN_ACCEPT', role: guestRole });
-                        hide('lobby-screen'); show('scenario-screen');
-                        updateRoleUI();
-                    }
-                    break;
-
-                case 'JOIN_ACCEPT':
-                    if(!isHost) {
-                        myRole = data.role; // Guest rolü burada atanır
-                        updateRoleUI();
-                        hide('lobby-screen'); 
-                        showWait("Ev sahibi maçı kuruyor...");
-                    }
-                    break;
-
-                case 'START':
-                    gameState = data.state;
-                    if(!isHost) {
-                        hideWait(); hide('result-screen'); render(); updateUI();
-                    }
-                    break;
-
-                case 'MOVED':
-                    gameState = data.state;
-                    hideWait(); render(); updateUI();
-                    if(isHost && gameState.phase === 'RESOLVE') {
-                        setTimeout(resolveTurn, 500);
-                    }
-                    break;
-
-                case 'RESULT':
-                    el('bottom-wait-bar').classList.add('hidden');
-                    gameState = data.state;
-                    showResult(data.title, data.desc); render();
-                    break;
-                
-                case 'NEXT':
-                    gameState = data.state;
-                    hideWait(); hide('result-screen'); render(); updateUI();
-                    break;
-            }
         }
 
         // --- LOBİ FONKSİYONLARI ---
@@ -273,25 +192,92 @@
         function showJoinMenu() { hide('lobby-menu'); show('join-panel'); }
         function resetLobby() { location.reload(); }
 
-        function createRoom(role) {
-            myRole = role; // Değişken burada atanıyor, en tepede tanımlı olduğu için hata vermez.
+        function selectHostRole(role) {
+            myRole = role; 
             isHost = true;
-            const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
-            currentRoom = roomId;
-            
-            el('my-id-display').innerText = roomId;
             hide('team-select-panel'); show('host-panel');
-            
-            connectMQTT(roomId);
+            initPeer();
         }
 
-        function joinRoom() {
-            const code = el('room-code-input').value.toUpperCase().trim();
-            if(!code) return alert("Kod gir!");
-            currentRoom = code; isHost = false;
+        function joinGame() {
+            const friendId = el('friend-id-input').value.trim();
+            if(!friendId) return alert("Kod gir!");
             
-            el('btn-join').innerText = "BAĞLANIYOR...";
-            connectMQTT(code);
+            el('btn-connect').innerText = "BAĞLANIYOR...";
+            el('btn-connect').disabled = true;
+
+            initPeer(); // Önce kendi Peer'ini oluştur
+            
+            // Peer hazır olunca bağlan
+            setTimeout(() => {
+                if(peer && !peer.destroyed) {
+                    conn = peer.connect(friendId);
+                    setupGuestConnection();
+                }
+            }, 1500);
+        }
+
+        // --- BAĞLANTI KURULUMU ---
+        function setupHostConnection() {
+            conn.on('open', () => {
+                // Guest bağlandı, ona rolünü söyle
+                const guestRole = (myRole === 'atk') ? 'def' : 'atk';
+                conn.send({ type: 'ASSIGN_ROLE', role: guestRole });
+
+                hide('lobby-screen'); show('scenario-screen');
+                updateRoleUI();
+            });
+            conn.on('data', (data) => handleNetworkData(data));
+            conn.on('close', () => { alert("Bağlantı koptu!"); location.reload(); });
+        }
+
+        function setupGuestConnection() {
+            conn.on('open', () => {
+                console.log("Host'a bağlanıldı.");
+            });
+            conn.on('data', (data) => {
+                if(data.type === 'ASSIGN_ROLE') {
+                    myRole = data.role;
+                    updateRoleUI();
+                    hide('lobby-screen'); 
+                    showWait("Ev sahibi maçı kuruyor...");
+                } else {
+                    handleNetworkData(data);
+                }
+            });
+            conn.on('close', () => { alert("Host ayrıldı!"); location.reload(); });
+        }
+
+        function sendData(data) {
+            if(conn && conn.open) conn.send(data);
+        }
+
+        function handleNetworkData(data) {
+            switch(data.type) {
+                case 'START_GAME':
+                    gameState = data.state;
+                    hide('wait-screen');
+                    updateTurnUI(); render();
+                    break;
+                
+                case 'OPPONENT_MOVED':
+                    gameState = data.state;
+                    hide('wait-screen');
+                    updateTurnUI(); render();
+                    break;
+
+                case 'SHOW_RESULT':
+                    gameState = data.state;
+                    showResultScreen(data.title, data.desc, data.isGameOver);
+                    render();
+                    break;
+
+                case 'NEW_TURN':
+                     gameState = data.state;
+                     hide('result-screen');
+                     updateTurnUI(); render();
+                     break;
+            }
         }
 
         function updateRoleUI() {
@@ -305,7 +291,15 @@
             alert("Kopyalandı!");
         }
 
-        // --- OYUN FONKSİYONLARI ---
+        // --- OYUN MOTORU ---
+        const ROWS = 7; const COLS = 5; let scenIdx = 0;
+        const SCENARIOS = [
+            { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+            { atk: [{r:6,c:2,l:'6'}, {r:4,c:0,l:'11'}, {r:4,c:4,l:'7'}, {r:5,c:2,l:'10'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:0,l:'2'}, {r:2,c:4,l:'3'}, {r:2,c:2,l:'4'}] },
+            { atk: [{r:6,c:1,l:'4'}, {r:6,c:3,l:'5'}, {r:5,c:2,l:'8'}, {r:2,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'4'}, {r:1,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+            { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
+        ];
+
         function selectScen(i, e) { scenIdx=i; document.querySelectorAll('.scenario-opt').forEach(x=>x.classList.remove('active')); e.classList.add('active'); }
 
         function startGame() {
@@ -316,26 +310,12 @@
             gameState.ballOwnerId = gameState.players[0].id;
             gameState.phase = 'ATTACK_PLAN';
             
-            sendData({ type: 'START', state: gameState });
-            hide('scenario-screen'); 
-            render(); updateUI();
+            hide('scenario-screen');
+            sendData({ type: 'START_GAME', state: gameState });
+            updateTurnUI(); render();
         }
 
-        function commitMove() {
-            if(myRole==='atk') { gameState.phase='WAIT_DEF'; sendData({ type: 'MOVED', state: gameState }); updateUI(); }
-            else { gameState.phase='RESOLVE'; sendData({ type: 'MOVED', state: gameState }); updateUI(); }
-        }
-
-        // --- UI FONKSİYONLARI ---
-        function showWait(m) { 
-            el('bottom-wait-text').innerText = m;
-            el('bottom-wait-bar').classList.remove('hidden');
-        }
-        function hideWait() { 
-            el('bottom-wait-bar').classList.add('hidden');
-        }
-
-        function updateUI() {
+        function updateTurnUI() {
             const s = el('status-text');
             if(gameState.phase === 'ATTACK_PLAN') {
                 if(myRole === 'atk') { s.innerText = "HÜCUM SIRA SENDE"; s.style.color = "#fbbf24"; }
@@ -343,25 +323,32 @@
             } 
             else if(gameState.phase === 'DEFENSE_PLAN' || gameState.phase === 'WAIT_DEF') {
                 if(gameState.phase === 'WAIT_DEF') gameState.phase = 'DEFENSE_PLAN';
-                if(myRole === 'def') { s.innerText = "SAVUNMA SIRA SENDE"; s.style.color = "#60a5fa"; }
+                if(myRole === 'def') { 
+                    hideWait(); // Defanstayken alt bar gizlensin, oynasın
+                    s.innerText = "SAVUNMA SIRA SENDE"; s.style.color = "#60a5fa"; 
+                }
                 else { s.innerText = "RAKİP SAVUNMA YAPIYOR"; s.style.color = "#fff"; showWait("Rakip blokluyor..."); }
             }
         }
 
-        function showResult(t, d) {
+        function showWait(m) { el('bottom-wait-text').innerText = m; show('bottom-wait-bar'); }
+        function hideWait() { hide('bottom-wait-bar'); }
+
+        function showResultScreen(t, d, isOver) {
             el('result-title').innerText = t; el('result-desc').innerHTML = d;
             const btn = el('result-btn');
-            const isOver = t.includes("GOL") || t.includes("TOP KAYBI");
             if(isOver) { btn.innerText = "YENİ MAÇ"; btn.className = "btn btn-danger"; btn.onclick = () => location.reload(); }
             else { btn.innerText = "DEVAM ET"; btn.className = "btn"; btn.onclick = nextTurn; }
+            
             hideWait(); show('result-screen');
         }
 
         function nextTurn() {
             if(!isHost) { showWait("Ev sahibi bekleniyor..."); hide('result-screen'); return; }
             gameState.phase = 'ATTACK_PLAN'; gameState.selectedUnit = null; gameState.moves = {atk:null, def:null};
-            sendData({ type: 'NEXT', state: gameState });
-            hide('result-screen'); render(); updateUI();
+            hide('result-screen');
+            sendData({ type: 'NEW_TURN', state: gameState });
+            updateTurnUI(); render();
         }
 
         // --- RENDER ---
@@ -438,6 +425,39 @@
             }
         }
 
+        function commitMove() {
+            if(myRole==='atk') { gameState.phase='WAIT_DEF'; updateTurnUI(); sendData({ type: 'OPPONENT_MOVED', state: gameState }); }
+            else { gameState.phase='RESOLVE'; updateTurnUI(); sendData({ type: 'OPPONENT_MOVED', state: gameState }); }
+        }
+
+        // HOST LOGIC
+        const originalHandle = handleNetworkData;
+        handleNetworkData = function(data) {
+            if(data.type === 'OPPONENT_MOVED') {
+                gameState = data.state;
+                if(gameState.phase === 'WAIT_DEF') {
+                     gameState.phase = 'DEFENSE_PLAN';
+                     updateTurnUI(); render();
+                }
+                else if (gameState.phase === 'RESOLVE') {
+                    if(isHost) resolveTurn();
+                }
+            } else {
+                // Normal akış
+                switch(data.type) {
+                    case 'START_GAME':
+                        gameState = data.state;
+                        hide('wait-screen'); updateTurnUI(); render(); break;
+                    case 'SHOW_RESULT':
+                        gameState = data.state;
+                        showResultScreen(data.title, data.desc, data.isGameOver); render(); break;
+                    case 'NEW_TURN':
+                         gameState = data.state;
+                         hide('result-screen'); updateTurnUI(); render(); break;
+                }
+            }
+        }
+
         function resolveTurn() {
             const am = gameState.moves.atk; const dm = gameState.moves.def;
             if(!am || !dm) return;
@@ -451,9 +471,9 @@
             if(sAtk) { sAtk.r=defStartR; sAtk.c=defStartC; msg="<br>(Topsuz alanda yer değişimi!)"; }
 
             const blocked = (am.r===dm.r && am.c===dm.c);
-            let t="", d="";
+            let t="", d="", over=false;
 
-            if(blocked) { t="TOP KAYBI!"; d="Savunma blokladı."+msg; }
+            if(blocked) { t="TOP KAYBI!"; d="Savunma blokladı."+msg; over=true; }
             else {
                 if(am.type==='PASS') { gameState.ballOwnerId=am.targetId; t="PAS BAŞARILI"; d="Atak devam."+msg; }
                 else { 
@@ -462,14 +482,15 @@
                     if(am.actorId === gameState.ballOwnerId) { t="DRIBBLING"; d="Topla ilerledi."+msg; } 
                     else { t="KOŞU YAPILDI"; d="Boş alana topsuz koşu."+msg; }
                 }
-                if(am.r===0 && (am.type==='PASS' || am.actorId === gameState.ballOwnerId)) { t="GOOOOOOOOL!"; d="Top ağlarda!"; }
+                if(am.r===0 && (am.type==='PASS' || am.actorId === gameState.ballOwnerId)) { t="GOOOOOOOOL!"; d="Top ağlarda!"; over=true; }
             }
             
-            sendData({ type: 'RESULT', state: gameState, title: t, desc: d });
-            showResult(t, d); render();
+            sendData({ type: 'SHOW_RESULT', state: gameState, title: t, desc: d, isGameOver: over });
+            showResultScreen(t, d, over); render();
         }
     </script>
 </body>
 </html>
+
 
 
