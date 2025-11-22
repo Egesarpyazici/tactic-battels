@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL MASTER: FIXED FINAL V2</title>
+    <title>TACTICAL MASTER: ERROR FREE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -140,26 +140,17 @@
 
     <script>
         // =================================================================
-        // 1. ÖNCELİKLİ TANIMLAMALAR (HATA ÖNLEME İÇİN EN TEPEDE)
+        // 1. ÖNCELİKLİ TANIMLAMALAR (EN TEPEDE)
         // =================================================================
         
-        // Değişkenlerin en başta tanımlanması "Cannot access before initialization" hatasını çözer.
-        let myRole = null;
-        let currentRoom = null;
-        let isHost = false;
-        let db = null;
-        let gameState = { phase: 'INIT', players: [], ballOwnerId: null, selectedUnit: null, moves: { atk: null, def: null } };
+        // Bu değişkenler kodun HER YERİNDEN önce tanımlanır.
+        var myRole = null;
+        var currentRoom = null;
+        var isHost = false;
+        var db = null;
+        var gameState = { phase: 'INIT', players: [], ballOwnerId: null, selectedUnit: null, moves: { atk: null, def: null } };
         
-        // Sabitler
-        const ROWS = 7; const COLS = 5; let scenIdx = 0;
-        const SCENARIOS = [
-            { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
-            { atk: [{r:6,c:2,l:'6'}, {r:4,c:0,l:'11'}, {r:4,c:4,l:'7'}, {r:5,c:2,l:'10'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:0,l:'2'}, {r:2,c:4,l:'3'}, {r:2,c:2,l:'4'}] },
-            { atk: [{r:6,c:1,l:'4'}, {r:6,c:3,l:'5'}, {r:5,c:2,l:'8'}, {r:2,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'4'}, {r:1,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
-            { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
-        ];
-
-        // Yardımcı Fonksiyonlar
+        // Yardımcılar
         function el(id) { return document.getElementById(id); }
         function show(id) { if(el(id)) el(id).classList.remove('hidden'); }
         function hide(id) { if(el(id)) el(id).classList.add('hidden'); }
@@ -186,7 +177,7 @@
             appId: "BURAYA_APP_ID_YAPISTIR"
         };
 
-        // Başlatma
+        // Firebase Başlatma
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.database();
@@ -201,7 +192,6 @@
         function resetLobby() { location.reload(); }
 
         function createRoom(role) {
-            // 'myRole' değişkeni en üstte tanımlı olduğu için artık hata vermez.
             myRole = role; 
             isHost = true;
             const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -258,6 +248,14 @@
         }
 
         // --- OYUN MOTORU ---
+        const ROWS = 7; const COLS = 5; let scenIdx = 0;
+        const SCENARIOS = [
+            { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+            { atk: [{r:6,c:2,l:'6'}, {r:4,c:0,l:'11'}, {r:4,c:4,l:'7'}, {r:5,c:2,l:'10'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:0,l:'2'}, {r:2,c:4,l:'3'}, {r:2,c:2,l:'4'}] },
+            { atk: [{r:6,c:1,l:'4'}, {r:6,c:3,l:'5'}, {r:5,c:2,l:'8'}, {r:2,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'4'}, {r:1,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+            { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
+        ];
+
         function selectScen(i, e) { scenIdx=i; document.querySelectorAll('.scenario-opt').forEach(x=>x.classList.remove('active')); e.classList.add('active'); }
 
         function startGame() {
@@ -355,6 +353,7 @@
                         d.appendChild(t);
                     }
                     
+                    // İPUÇLARI
                     if(myRole==='atk' && gameState.phase==='ATTACK_PLAN' && gameState.selectedUnit) {
                         const actor = gameState.players.find(x=>x.id===gameState.selectedUnit);
                         if(actor && actor.team === 'atk') {
@@ -423,16 +422,14 @@
             if(!am || !dm) return;
 
             const activeDef = gameState.players.find(x=>x.id===dm.actorId);
-            const defStartR = ad.r; const defStartC = ad.c; // Hata buradaydı, düzelttim (ad -> activeDef)
-            // Düzeltme: 'ad' değişkeni activeDef olarak tanımlanmalı
-            const defStartR_fixed = activeDef.r;
-            const defStartC_fixed = activeDef.c;
+            const defStartR = activeDef.r;
+            const defStartC = activeDef.c;
 
             activeDef.r = dm.r; activeDef.c = dm.c; 
 
             const sAtk = gameState.players.find(x=>x.team==='atk' && x.r===dm.r && x.c===dm.c && x.id!==gameState.ballOwnerId);
             let msg = "";
-            if(sAtk) { sAtk.r=defStartR_fixed; sAtk.c=defStartC_fixed; msg="<br>(Topsuz alanda yer değişimi!)"; }
+            if(sAtk) { sAtk.r=defStartR; sAtk.c=defStartC; msg="<br>(Topsuz alanda yer değişimi!)"; }
 
             const blocked = (am.r===dm.r && am.c===dm.c);
             let t="", d="";
@@ -453,6 +450,7 @@
     </script>
 </body>
 </html>
+
 
 
 
