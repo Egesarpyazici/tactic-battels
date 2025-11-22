@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL MASTER: MQTT FINAL</title>
+    <title>TACTICAL MASTER: MQTT EDITION</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -58,7 +58,7 @@
         .waiting-spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top-color: var(--gold); border-radius: 50%; animation: spin 1s infinite linear; margin: 20px auto; }
         @keyframes spin { to {transform: rotate(360deg);} }
         
-        /* YENİ: ALT BEKLEME ÇUBUĞU */
+        /* ALT BEKLEME ÇUBUĞU */
         #bottom-wait-bar {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.85); border: 1px solid var(--gold);
@@ -71,9 +71,6 @@
         #bottom-wait-text { font-size: 1.1em; font-weight: bold; color: #fff; letter-spacing: 1px; }
 
         #error-overlay { position: fixed; top: 0; left: 0; width: 100%; background: #b91c1c; color: white; text-align: center; padding: 5px; z-index: 99999; display: none; font-size: 0.8em; }
-        
-        /* Log (Gizli) */
-        #sys-log { display: none; }
     </style>
 </head>
 <body>
@@ -87,7 +84,6 @@
     </header>
 
     <div id="game-stage"><div class="pitch" id="pitch"></div></div>
-    <div id="sys-log"></div>
 
     <div id="bottom-wait-bar" class="hidden">
         <div class="waiting-spinner" style="width:20px; height:20px;"></div>
@@ -142,7 +138,7 @@
 
     <script>
         // =================================================================
-        // 1. ÖNCELİKLİ TANIMLAMALAR (EN TEPEDE - HATA ÖNLEME)
+        // 1. ÖNCELİKLİ TANIMLAMALAR (HATALARI ÖNLER)
         // =================================================================
         
         // Global Değişkenler
@@ -154,7 +150,7 @@
         var gameState = { phase: 'INIT', players: [], ballOwnerId: null, selectedUnit: null, moves: { atk: null, def: null } };
         
         // Sabitler
-        const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
+        const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt'; // Ücretsiz MQTT Sunucusu
         const ROWS = 7; const COLS = 5; let scenIdx = 0;
         const SCENARIOS = [
             { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
@@ -167,7 +163,6 @@
         function el(id) { return document.getElementById(id); }
         function show(id) { if(el(id)) el(id).classList.remove('hidden'); }
         function hide(id) { if(el(id)) el(id).classList.add('hidden'); }
-        function log(m) { console.log(m); }
 
         // Hata Yakalayıcı
         window.onerror = function(msg) { 
@@ -179,15 +174,19 @@
         };
 
         // ========================================================
-        // 2. MQTT BAĞLANTI MANTIĞI (SERVER YOK)
+        // 2. MQTT BAĞLANTI MANTIĞI (SERVER YOK, FIREBASE YOK)
         // ========================================================
         
         function connectMQTT(roomId) {
             const clientId = 'tm_' + Math.random().toString(16).substr(2, 8);
+            // MQTT bağlantısını başlat
             client = mqtt.connect(BROKER_URL, { clientId: clientId });
 
             client.on('connect', () => {
                 connected = true;
+                console.log("MQTT Bağlandı");
+                
+                // Odayı dinlemeye başla
                 client.subscribe(`tactical_master/${roomId}`, (err) => {
                     if(!err) {
                         if(!isHost) {
@@ -205,7 +204,9 @@
                 } catch(e) { console.error("Veri hatası", e); }
             });
 
-            client.on('error', (err) => { alert("Bağlantı hatası! Yenileyin."); });
+            client.on('error', (err) => { 
+                alert("Bağlantı hatası! Sayfayı yenile."); 
+            });
         }
 
         function sendData(payload) {
@@ -216,7 +217,7 @@
         }
 
         function handleData(data) {
-            // Kendi mesajını yoksay
+            // Kendi gönderdiğim mesajları yoksay
             if (isHost && data.sender === 'HOST') return;
             if (!isHost && data.sender === 'GUEST') return;
 
@@ -232,7 +233,7 @@
 
                 case 'JOIN_ACCEPT':
                     if(!isHost) {
-                        myRole = data.role; // Guest rolünü alır
+                        myRole = data.role; // Guest rolü burada atanır
                         updateRoleUI();
                         hide('lobby-screen'); 
                         showWait("Ev sahibi maçı kuruyor...");
@@ -255,7 +256,7 @@
                     break;
 
                 case 'RESULT':
-                    el('bottom-wait-bar').classList.add('hidden'); // Alt barı gizle
+                    el('bottom-wait-bar').classList.add('hidden');
                     gameState = data.state;
                     showResult(data.title, data.desc); render();
                     break;
@@ -273,7 +274,7 @@
         function resetLobby() { location.reload(); }
 
         function createRoom(role) {
-            myRole = role; 
+            myRole = role; // Değişken burada atanıyor, en tepede tanımlı olduğu için hata vermez.
             isHost = true;
             const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
             currentRoom = roomId;
