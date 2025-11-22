@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL MASTER: PEER FINAL</title>
+    <title>TACTICAL MASTER: INSTANT ID</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
     <style>
-        /* --- GÖRSEL TASARIM --- */
+        /* --- GÖRSEL TASARIM (AYNEN KORUNDU) --- */
         :root { --grass-light: #4b8b3b; --grass-dark: #3a702e; --line-white: rgba(255,255,255,0.85); --net-pattern: rgba(255,255,255,0.15); --kit-atk-primary: #d32f2f; --kit-atk-secondary: #b71c1c; --kit-def-primary: #1976d2; --kit-def-secondary: #0d47a1; --ui-bg: #1e293b; --ui-border: #334155; --gold: #fbbf24; }
         * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; min-height: 100vh; background: #111 radial-gradient(circle at 50% 30%, #2c3e50 0%, #000000 90%) fixed; color: #fff; font-family: 'Rajdhani', sans-serif; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
@@ -106,7 +106,7 @@
             </div>
             <div id="host-panel" class="hidden">
                 <p>Oda Kodun:</p>
-                <div class="lobby-code" id="my-id-display" onclick="copyId()">...</div>
+                <div class="lobby-code" id="my-id-display" onclick="copyId()">YÜKLENİYOR...</div>
                 <p style="font-size:0.9em; color:#aaa;">Kodu arkadaşına gönder.</p>
                 <div class="waiting-spinner" style="margin: 20px auto; display:block;"></div>
                 <button class="btn btn-secondary" onclick="resetLobby()">GERİ</button>
@@ -114,7 +114,7 @@
             <div id="join-panel" class="hidden">
                 <p>Oda Kodunu Gir:</p>
                 <input type="text" id="room-code-input" class="input-box" placeholder="XXXXX">
-                <button class="btn" id="btn-connect" onclick="joinRoom()">BAĞLAN</button>
+                <button class="btn" id="btn-join" onclick="joinGame()">BAĞLAN</button>
                 <button class="btn btn-secondary" onclick="resetLobby()">GERİ</button>
             </div>
         </div>
@@ -138,9 +138,7 @@
     <div id="wait-screen" class="overlay hidden"><div class="card"><h2 style="color:var(--gold);">BEKLENİYOR</h2><div class="waiting-spinner"></div><p id="wait-msg">...</p></div></div>
 
     <script>
-        // =================================================================
-        // 1. DEĞİŞKEN TANIMLARI (EN BAŞTA - HATA ÖNLEME)
-        // =================================================================
+        // --- ÖNCELİKLİ DEĞİŞKENLER ---
         var peer = null;
         var conn = null;
         var myPeerId = null;
@@ -148,16 +146,36 @@
         var myRole = null;
         var gameState = { phase: 'INIT', players: [], ballOwnerId: null, selectedUnit: null, moves: { atk: null, def: null } };
         
-        // Yardımcı Fonksiyonlar
+        // Sabitler
+        const ROWS = 7; const COLS = 5; let scenIdx = 0;
+        const SCENARIOS = [
+            { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+            { atk: [{r:6,c:2,l:'6'}, {r:4,c:0,l:'11'}, {r:4,c:4,l:'7'}, {r:5,c:2,l:'10'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:0,l:'2'}, {r:2,c:4,l:'3'}, {r:2,c:2,l:'4'}] },
+            { atk: [{r:6,c:1,l:'4'}, {r:6,c:3,l:'5'}, {r:5,c:2,l:'8'}, {r:2,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'4'}, {r:1,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+            { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
+        ];
+
+        // Yardımcılar
         function el(id) { return document.getElementById(id); }
         function show(id) { if(el(id)) el(id).classList.remove('hidden'); }
         function hide(id) { if(el(id)) el(id).classList.add('hidden'); }
 
+        window.onerror = function(msg) { 
+            if(el('error-overlay')) {
+                el('error-overlay').style.display = 'block'; 
+                el('error-overlay').innerText = `HATA: ${msg}`; 
+            }
+            return false; 
+        };
+
         // ========================================================
-        // 2. BAĞLANTI SİSTEMİ (GOOGLE STUN SUNUCULARI İLE GÜÇLENDİRİLDİ)
+        // 2. BAĞLANTI SİSTEMİ (MANUEL ID - GARANTİ ÇÖZÜM)
         // ========================================================
-        function initPeer() {
-            peer = new Peer(null, {
+        function initPeer(customId = null) {
+            // ID'yi biz belirlersek daha hızlı bağlanır
+            const id = customId || 'tm_' + Math.random().toString(36).substr(2, 5).toUpperCase();
+            
+            peer = new Peer(id, {
                 debug: 2,
                 config: {
                     'iceServers': [
@@ -179,51 +197,62 @@
             });
 
             peer.on('error', (err) => {
-                alert("Bağlantı Hatası: " + err.type);
-                if(el('btn-connect')) { 
-                    el('btn-connect').innerText = "BAĞLAN"; 
-                    el('btn-connect').disabled = false; 
+                console.log(err);
+                if(err.type === 'unavailable-id') {
+                    // ID doluysa yenisini dene
+                    initPeer();
+                } else {
+                    alert("Bağlantı Hatası: " + err.type);
+                    if(el('btn-join')) { 
+                        el('btn-join').innerText = "BAĞLAN"; 
+                        el('btn-join').disabled = false; 
+                    }
                 }
             });
         }
 
-        // --- LOBİ FONKSİYONLARI ---
+        // --- LOBİ ---
         function showHostMenu() { hide('lobby-menu'); show('team-select-panel'); }
         function showJoinMenu() { hide('lobby-menu'); show('join-panel'); }
         function resetLobby() { location.reload(); }
 
-        function selectHostRole(role) {
+        function createRoom(role) {
             myRole = role; 
             isHost = true;
             hide('team-select-panel'); show('host-panel');
+            // Host için rastgele ID ile başlat
             initPeer();
         }
 
         function joinGame() {
-            const friendId = el('friend-id-input').value.trim();
+            const friendId = el('room-code-input').value.toUpperCase().trim();
             if(!friendId) return alert("Kod gir!");
             
-            el('btn-connect').innerText = "BAĞLANIYOR...";
-            el('btn-connect').disabled = true;
+            el('btn-join').innerText = "BAĞLANIYOR...";
+            el('btn-join').disabled = true;
 
-            initPeer(); // Önce kendi Peer'ini oluştur
-            
-            // Peer hazır olunca bağlan
-            setTimeout(() => {
-                if(peer && !peer.destroyed) {
-                    conn = peer.connect(friendId);
-                    setupGuestConnection();
-                }
-            }, 1500);
+            // Guest kendi Peer'ini oluşturur
+            const myGuestId = 'tm_g_' + Math.random().toString(36).substr(2, 5);
+            peer = new Peer(myGuestId, { debug: 2 });
+
+            peer.on('open', () => {
+                // Hazır olunca Host'a bağlan
+                conn = peer.connect(friendId);
+                setupGuestConnection();
+            });
+
+            peer.on('error', (err) => {
+                alert("Bağlantı kurulamadı: " + err.type);
+                el('btn-join').innerText = "BAĞLAN";
+                el('btn-join').disabled = false;
+            });
         }
 
         // --- BAĞLANTI KURULUMU ---
         function setupHostConnection() {
             conn.on('open', () => {
-                // Guest bağlandı, ona rolünü söyle
                 const guestRole = (myRole === 'atk') ? 'def' : 'atk';
                 conn.send({ type: 'ASSIGN_ROLE', role: guestRole });
-
                 hide('lobby-screen'); show('scenario-screen');
                 updateRoleUI();
             });
@@ -246,6 +275,15 @@
                 }
             });
             conn.on('close', () => { alert("Host ayrıldı!"); location.reload(); });
+            
+            // 5 Saniye içinde bağlanmazsa
+            setTimeout(() => {
+                if(!conn.open) {
+                    alert("Zaman aşımı! Kod doğru mu?");
+                    el('btn-join').innerText = "BAĞLAN";
+                    el('btn-join').disabled = false;
+                }
+            }, 5000);
         }
 
         function sendData(data) {
@@ -259,19 +297,16 @@
                     hide('wait-screen');
                     updateTurnUI(); render();
                     break;
-                
                 case 'OPPONENT_MOVED':
                     gameState = data.state;
                     hide('wait-screen');
                     updateTurnUI(); render();
                     break;
-
                 case 'SHOW_RESULT':
                     gameState = data.state;
                     showResultScreen(data.title, data.desc, data.isGameOver);
                     render();
                     break;
-
                 case 'NEW_TURN':
                      gameState = data.state;
                      hide('result-screen');
@@ -292,14 +327,6 @@
         }
 
         // --- OYUN MOTORU ---
-        const ROWS = 7; const COLS = 5; let scenIdx = 0;
-        const SCENARIOS = [
-            { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
-            { atk: [{r:6,c:2,l:'6'}, {r:4,c:0,l:'11'}, {r:4,c:4,l:'7'}, {r:5,c:2,l:'10'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:0,l:'2'}, {r:2,c:4,l:'3'}, {r:2,c:2,l:'4'}] },
-            { atk: [{r:6,c:1,l:'4'}, {r:6,c:3,l:'5'}, {r:5,c:2,l:'8'}, {r:2,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'4'}, {r:1,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
-            { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
-        ];
-
         function selectScen(i, e) { scenIdx=i; document.querySelectorAll('.scenario-opt').forEach(x=>x.classList.remove('active')); e.classList.add('active'); }
 
         function startGame() {
@@ -315,7 +342,16 @@
             updateTurnUI(); render();
         }
 
-        function updateTurnUI() {
+        function commitMove() {
+            if(myRole==='atk') { gameState.phase='WAIT_DEF'; sendData({ type: 'OPPONENT_MOVED', state: gameState }); updateUI(); }
+            else { gameState.phase='RESOLVE'; sendData({ type: 'OPPONENT_MOVED', state: gameState }); updateUI(); }
+        }
+
+        // --- UI ---
+        function showWait(m) { el('bottom-wait-text').innerText = m; show('bottom-wait-bar'); }
+        function hideWait() { hide('bottom-wait-bar'); }
+
+        function updateUI() {
             const s = el('status-text');
             if(gameState.phase === 'ATTACK_PLAN') {
                 if(myRole === 'atk') { s.innerText = "HÜCUM SIRA SENDE"; s.style.color = "#fbbf24"; }
@@ -324,15 +360,11 @@
             else if(gameState.phase === 'DEFENSE_PLAN' || gameState.phase === 'WAIT_DEF') {
                 if(gameState.phase === 'WAIT_DEF') gameState.phase = 'DEFENSE_PLAN';
                 if(myRole === 'def') { 
-                    hideWait(); // Defanstayken alt bar gizlensin, oynasın
-                    s.innerText = "SAVUNMA SIRA SENDE"; s.style.color = "#60a5fa"; 
+                    hideWait(); s.innerText = "SAVUNMA SIRA SENDE"; s.style.color = "#60a5fa"; 
                 }
                 else { s.innerText = "RAKİP SAVUNMA YAPIYOR"; s.style.color = "#fff"; showWait("Rakip blokluyor..."); }
             }
         }
-
-        function showWait(m) { el('bottom-wait-text').innerText = m; show('bottom-wait-bar'); }
-        function hideWait() { hide('bottom-wait-bar'); }
 
         function showResultScreen(t, d, isOver) {
             el('result-title').innerText = t; el('result-desc').innerHTML = d;
@@ -366,7 +398,7 @@
                         d.appendChild(t);
                     }
                     
-                    // İPUÇLARI
+                    // GÖRSEL İPUÇLARI
                     if(myRole==='atk' && gameState.phase==='ATTACK_PLAN' && gameState.selectedUnit) {
                         const actor = gameState.players.find(x=>x.id===gameState.selectedUnit);
                         if(actor && actor.team === 'atk') {
@@ -425,39 +457,6 @@
             }
         }
 
-        function commitMove() {
-            if(myRole==='atk') { gameState.phase='WAIT_DEF'; updateTurnUI(); sendData({ type: 'OPPONENT_MOVED', state: gameState }); }
-            else { gameState.phase='RESOLVE'; updateTurnUI(); sendData({ type: 'OPPONENT_MOVED', state: gameState }); }
-        }
-
-        // HOST LOGIC
-        const originalHandle = handleNetworkData;
-        handleNetworkData = function(data) {
-            if(data.type === 'OPPONENT_MOVED') {
-                gameState = data.state;
-                if(gameState.phase === 'WAIT_DEF') {
-                     gameState.phase = 'DEFENSE_PLAN';
-                     updateTurnUI(); render();
-                }
-                else if (gameState.phase === 'RESOLVE') {
-                    if(isHost) resolveTurn();
-                }
-            } else {
-                // Normal akış
-                switch(data.type) {
-                    case 'START_GAME':
-                        gameState = data.state;
-                        hide('wait-screen'); updateTurnUI(); render(); break;
-                    case 'SHOW_RESULT':
-                        gameState = data.state;
-                        showResultScreen(data.title, data.desc, data.isGameOver); render(); break;
-                    case 'NEW_TURN':
-                         gameState = data.state;
-                         hide('result-screen'); updateTurnUI(); render(); break;
-                }
-            }
-        }
-
         function resolveTurn() {
             const am = gameState.moves.atk; const dm = gameState.moves.def;
             if(!am || !dm) return;
@@ -491,6 +490,3 @@
     </script>
 </body>
 </html>
-
-
-
