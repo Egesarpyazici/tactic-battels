@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL MASTER: INSTANT ID</title>
+    <title>TACTICAL MASTER: MQTT FIXED</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
 
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
 
     <style>
-        /* --- GÖRSEL TASARIM (AYNEN KORUNDU) --- */
+        /* --- GÖRSEL TASARIM (HİÇBİR DEĞİŞİKLİK YOK) --- */
         :root { --grass-light: #4b8b3b; --grass-dark: #3a702e; --line-white: rgba(255,255,255,0.85); --net-pattern: rgba(255,255,255,0.15); --kit-atk-primary: #d32f2f; --kit-atk-secondary: #b71c1c; --kit-def-primary: #1976d2; --kit-def-secondary: #0d47a1; --ui-bg: #1e293b; --ui-border: #334155; --gold: #fbbf24; }
         * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; min-height: 100vh; background: #111 radial-gradient(circle at 50% 30%, #2c3e50 0%, #000000 90%) fixed; color: #fff; font-family: 'Rajdhani', sans-serif; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
@@ -106,7 +106,7 @@
             </div>
             <div id="host-panel" class="hidden">
                 <p>Oda Kodun:</p>
-                <div class="lobby-code" id="my-id-display" onclick="copyId()">YÜKLENİYOR...</div>
+                <div class="lobby-code" id="my-id-display" onclick="copyId()">...</div>
                 <p style="font-size:0.9em; color:#aaa;">Kodu arkadaşına gönder.</p>
                 <div class="waiting-spinner" style="margin: 20px auto; display:block;"></div>
                 <button class="btn btn-secondary" onclick="resetLobby()">GERİ</button>
@@ -138,15 +138,17 @@
     <div id="wait-screen" class="overlay hidden"><div class="card"><h2 style="color:var(--gold);">BEKLENİYOR</h2><div class="waiting-spinner"></div><p id="wait-msg">...</p></div></div>
 
     <script>
-        // --- ÖNCELİKLİ DEĞİŞKENLER ---
-        var peer = null;
-        var conn = null;
-        var myPeerId = null;
-        var isHost = false;
+        // =================================================================
+        // 1. ÖNCELİKLİ DEĞİŞKENLER
+        // =================================================================
+        var client = null;
         var myRole = null;
+        var currentRoom = null;
+        var isHost = false;
+        var connected = false;
         var gameState = { phase: 'INIT', players: [], ballOwnerId: null, selectedUnit: null, moves: { atk: null, def: null } };
         
-        // Sabitler
+        const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
         const ROWS = 7; const COLS = 5; let scenIdx = 0;
         const SCENARIOS = [
             { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
@@ -155,7 +157,6 @@
             { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
         ];
 
-        // Yardımcılar
         function el(id) { return document.getElementById(id); }
         function show(id) { if(el(id)) el(id).classList.remove('hidden'); }
         function hide(id) { if(el(id)) el(id).classList.add('hidden'); }
@@ -169,150 +170,130 @@
         };
 
         // ========================================================
-        // 2. BAĞLANTI SİSTEMİ (MANUEL ID - GARANTİ ÇÖZÜM)
+        // 2. MQTT BAĞLANTI
         // ========================================================
-        function initPeer(customId = null) {
-            // ID'yi biz belirlersek daha hızlı bağlanır
-            const id = customId || 'tm_' + Math.random().toString(36).substr(2, 5).toUpperCase();
+        
+        function connectMQTT(roomId) {
+            const clientId = 'tm_' + Math.random().toString(16).substr(2, 8);
             
-            peer = new Peer(id, {
-                debug: 2,
-                config: {
-                    'iceServers': [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
-                }
-            });
-            
-            peer.on('open', (id) => {
-                myPeerId = id;
-                if(el('my-id-display')) el('my-id-display').innerText = id;
-            });
+            // Bağlantı başlıyor
+            client = mqtt.connect(BROKER_URL, { clientId: clientId });
 
-            peer.on('connection', (c) => {
-                if(!isHost) return;
-                conn = c;
-                setupHostConnection();
-            });
-
-            peer.on('error', (err) => {
-                console.log(err);
-                if(err.type === 'unavailable-id') {
-                    // ID doluysa yenisini dene
-                    initPeer();
-                } else {
-                    alert("Bağlantı Hatası: " + err.type);
-                    if(el('btn-join')) { 
-                        el('btn-join').innerText = "BAĞLAN"; 
-                        el('btn-join').disabled = false; 
+            client.on('connect', () => {
+                connected = true;
+                console.log("MQTT Bağlandı");
+                
+                client.subscribe(`tactical_master/${roomId}`, (err) => {
+                    if(!err) {
+                        if(!isHost) {
+                            // Guest bağlanınca haber verir
+                            sendData({ type: 'JOIN_REQUEST' });
+                        }
                     }
-                }
+                });
+            });
+
+            client.on('message', (topic, message) => {
+                try {
+                    const data = JSON.parse(message.toString());
+                    handleData(data);
+                } catch(e) { console.error("Veri hatası", e); }
+            });
+
+            client.on('error', (err) => { 
+                alert("Bağlantı hatası! Sayfayı yenile."); 
             });
         }
 
-        // --- LOBİ ---
+        function sendData(payload) {
+            if(client && connected) {
+                payload.sender = isHost ? 'HOST' : 'GUEST';
+                client.publish(`tactical_master/${currentRoom}`, JSON.stringify(payload));
+            }
+        }
+
+        function handleData(data) {
+            if (isHost && data.sender === 'HOST') return;
+            if (!isHost && data.sender === 'GUEST') return;
+
+            switch(data.type) {
+                case 'JOIN_REQUEST':
+                    if(isHost) {
+                        const guestRole = (myRole === 'atk') ? 'def' : 'atk';
+                        sendData({ type: 'JOIN_ACCEPT', role: guestRole });
+                        hide('lobby-screen'); show('scenario-screen');
+                        updateRoleUI();
+                    }
+                    break;
+
+                case 'JOIN_ACCEPT':
+                    if(!isHost) {
+                        myRole = data.role;
+                        updateRoleUI();
+                        hide('lobby-screen'); 
+                        showWait("Ev sahibi maçı kuruyor...");
+                    }
+                    break;
+
+                case 'START':
+                    gameState = data.state;
+                    if(!isHost) {
+                        hideWait(); hide('result-screen'); render(); updateUI();
+                    }
+                    break;
+
+                case 'MOVED':
+                    gameState = data.state;
+                    hideWait(); render(); updateUI();
+                    if(isHost && gameState.phase === 'RESOLVE') {
+                        setTimeout(resolveTurn, 500);
+                    }
+                    break;
+
+                case 'RESULT':
+                    el('bottom-wait-bar').classList.add('hidden');
+                    gameState = data.state;
+                    showResult(data.title, data.desc); render();
+                    break;
+                
+                case 'NEXT':
+                    gameState = data.state;
+                    hideWait(); hide('result-screen'); render(); updateUI();
+                    break;
+            }
+        }
+
+        // --- LOBİ FONKSİYONLARI ---
         function showHostMenu() { hide('lobby-menu'); show('team-select-panel'); }
         function showJoinMenu() { hide('lobby-menu'); show('join-panel'); }
         function resetLobby() { location.reload(); }
 
         function createRoom(role) {
+            // ÖNCE EKRANI DEĞİŞTİR (Donmayı önler)
+            hide('team-select-panel'); 
+            show('host-panel');
+            
+            // SONRA İŞLEMLERİ YAP
             myRole = role; 
             isHost = true;
-            hide('team-select-panel'); show('host-panel');
-            // Host için rastgele ID ile başlat
-            initPeer();
+            const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+            currentRoom = roomId;
+            
+            el('my-id-display').innerText = roomId;
+            
+            // Bağlantıyı arka planda başlat
+            setTimeout(() => {
+                connectMQTT(roomId);
+            }, 100);
         }
 
-        function joinGame() {
-            const friendId = el('room-code-input').value.toUpperCase().trim();
-            if(!friendId) return alert("Kod gir!");
+        function joinRoom() {
+            const code = el('room-code-input').value.toUpperCase().trim();
+            if(!code) return alert("Kod gir!");
+            currentRoom = code; isHost = false;
             
             el('btn-join').innerText = "BAĞLANIYOR...";
-            el('btn-join').disabled = true;
-
-            // Guest kendi Peer'ini oluşturur
-            const myGuestId = 'tm_g_' + Math.random().toString(36).substr(2, 5);
-            peer = new Peer(myGuestId, { debug: 2 });
-
-            peer.on('open', () => {
-                // Hazır olunca Host'a bağlan
-                conn = peer.connect(friendId);
-                setupGuestConnection();
-            });
-
-            peer.on('error', (err) => {
-                alert("Bağlantı kurulamadı: " + err.type);
-                el('btn-join').innerText = "BAĞLAN";
-                el('btn-join').disabled = false;
-            });
-        }
-
-        // --- BAĞLANTI KURULUMU ---
-        function setupHostConnection() {
-            conn.on('open', () => {
-                const guestRole = (myRole === 'atk') ? 'def' : 'atk';
-                conn.send({ type: 'ASSIGN_ROLE', role: guestRole });
-                hide('lobby-screen'); show('scenario-screen');
-                updateRoleUI();
-            });
-            conn.on('data', (data) => handleNetworkData(data));
-            conn.on('close', () => { alert("Bağlantı koptu!"); location.reload(); });
-        }
-
-        function setupGuestConnection() {
-            conn.on('open', () => {
-                console.log("Host'a bağlanıldı.");
-            });
-            conn.on('data', (data) => {
-                if(data.type === 'ASSIGN_ROLE') {
-                    myRole = data.role;
-                    updateRoleUI();
-                    hide('lobby-screen'); 
-                    showWait("Ev sahibi maçı kuruyor...");
-                } else {
-                    handleNetworkData(data);
-                }
-            });
-            conn.on('close', () => { alert("Host ayrıldı!"); location.reload(); });
-            
-            // 5 Saniye içinde bağlanmazsa
-            setTimeout(() => {
-                if(!conn.open) {
-                    alert("Zaman aşımı! Kod doğru mu?");
-                    el('btn-join').innerText = "BAĞLAN";
-                    el('btn-join').disabled = false;
-                }
-            }, 5000);
-        }
-
-        function sendData(data) {
-            if(conn && conn.open) conn.send(data);
-        }
-
-        function handleNetworkData(data) {
-            switch(data.type) {
-                case 'START_GAME':
-                    gameState = data.state;
-                    hide('wait-screen');
-                    updateTurnUI(); render();
-                    break;
-                case 'OPPONENT_MOVED':
-                    gameState = data.state;
-                    hide('wait-screen');
-                    updateTurnUI(); render();
-                    break;
-                case 'SHOW_RESULT':
-                    gameState = data.state;
-                    showResultScreen(data.title, data.desc, data.isGameOver);
-                    render();
-                    break;
-                case 'NEW_TURN':
-                     gameState = data.state;
-                     hide('result-screen');
-                     updateTurnUI(); render();
-                     break;
-            }
+            connectMQTT(code);
         }
 
         function updateRoleUI() {
@@ -337,19 +318,24 @@
             gameState.ballOwnerId = gameState.players[0].id;
             gameState.phase = 'ATTACK_PLAN';
             
-            hide('scenario-screen');
-            sendData({ type: 'START_GAME', state: gameState });
-            updateTurnUI(); render();
+            sendData({ type: 'START', state: gameState });
+            hide('scenario-screen'); 
+            render(); updateUI();
         }
 
         function commitMove() {
-            if(myRole==='atk') { gameState.phase='WAIT_DEF'; sendData({ type: 'OPPONENT_MOVED', state: gameState }); updateUI(); }
-            else { gameState.phase='RESOLVE'; sendData({ type: 'OPPONENT_MOVED', state: gameState }); updateUI(); }
+            if(myRole==='atk') { gameState.phase='WAIT_DEF'; sendData({ type: 'MOVED', state: gameState }); updateUI(); }
+            else { gameState.phase='RESOLVE'; sendData({ type: 'MOVED', state: gameState }); updateUI(); }
         }
 
-        // --- UI ---
-        function showWait(m) { el('bottom-wait-text').innerText = m; show('bottom-wait-bar'); }
-        function hideWait() { hide('bottom-wait-bar'); }
+        // --- UI FONKSİYONLARI ---
+        function showWait(m) { 
+            el('bottom-wait-text').innerText = m;
+            el('bottom-wait-bar').classList.remove('hidden');
+        }
+        function hideWait() { 
+            el('bottom-wait-bar').classList.add('hidden');
+        }
 
         function updateUI() {
             const s = el('status-text');
@@ -366,21 +352,20 @@
             }
         }
 
-        function showResultScreen(t, d, isOver) {
+        function showResult(t, d) {
             el('result-title').innerText = t; el('result-desc').innerHTML = d;
             const btn = el('result-btn');
+            const isOver = t.includes("GOL") || t.includes("TOP KAYBI");
             if(isOver) { btn.innerText = "YENİ MAÇ"; btn.className = "btn btn-danger"; btn.onclick = () => location.reload(); }
             else { btn.innerText = "DEVAM ET"; btn.className = "btn"; btn.onclick = nextTurn; }
-            
             hideWait(); show('result-screen');
         }
 
         function nextTurn() {
             if(!isHost) { showWait("Ev sahibi bekleniyor..."); hide('result-screen'); return; }
             gameState.phase = 'ATTACK_PLAN'; gameState.selectedUnit = null; gameState.moves = {atk:null, def:null};
-            hide('result-screen');
-            sendData({ type: 'NEW_TURN', state: gameState });
-            updateTurnUI(); render();
+            sendData({ type: 'NEXT', state: gameState });
+            hide('result-screen'); render(); updateUI();
         }
 
         // --- RENDER ---
@@ -398,7 +383,7 @@
                         d.appendChild(t);
                     }
                     
-                    // GÖRSEL İPUÇLARI
+                    // İPUÇLARI
                     if(myRole==='atk' && gameState.phase==='ATTACK_PLAN' && gameState.selectedUnit) {
                         const actor = gameState.players.find(x=>x.id===gameState.selectedUnit);
                         if(actor && actor.team === 'atk') {
@@ -484,8 +469,8 @@
                 if(am.r===0 && (am.type==='PASS' || am.actorId === gameState.ballOwnerId)) { t="GOOOOOOOOL!"; d="Top ağlarda!"; over=true; }
             }
             
-            sendData({ type: 'SHOW_RESULT', state: gameState, title: t, desc: d, isGameOver: over });
-            showResultScreen(t, d, over); render();
+            sendData({ type: 'RESULT', state: gameState, title: t, desc: d, isGameOver: over });
+            showResult(t, d); render();
         }
     </script>
 </body>
