@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL MASTER: FIXED ULTIMATE</title>
+    <title>TACTICAL MASTER: FIXED FINAL</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -38,6 +38,7 @@
         @keyframes pulse { 0% {transform: scale(0.8); opacity: 1;} 100% {transform: scale(1.2); opacity: 0;} }
         @keyframes spinSlow { 100% {transform: rotate(360deg);} }
         
+        /* UI PANELLERİ */
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; transition: opacity 0.3s; }
         .hidden { opacity: 0; pointer-events: none; }
         .card { background: var(--ui-bg); padding: 40px; border-radius: 16px; border: 1px solid var(--ui-border); text-align: center; width: 90%; max-width: 500px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
@@ -70,6 +71,7 @@
         #bottom-wait-bar.hidden { transform: translate(-50%, 200%); }
         #bottom-wait-text { font-size: 1.1em; font-weight: bold; color: #fff; letter-spacing: 1px; }
 
+        /* Hata Gösterimi */
         #error-overlay { position: fixed; top: 0; left: 0; width: 100%; background: #b91c1c; color: white; text-align: center; padding: 5px; z-index: 99999; display: none; font-size: 0.8em; }
     </style>
 </head>
@@ -138,17 +140,29 @@
 
     <script>
         // =================================================================
-        // YARDIMCI FONKSİYONLAR (EN TEPEDE TANIMLANDI - HATA VERMEZ)
+        // HATA DÜZELTME: DEĞİŞKENLER VE FONKSİYONLAR EN TEPEDE
         // =================================================================
+        
+        // Global Değişkenler (Tanımsız Hatasını Önlemek İçin)
+        let myRole = null;
+        let currentRoom = null;
+        let isHost = false;
+        let db = null;
+        let gameState = { phase: 'INIT', players: [], ballOwnerId: null, selectedUnit: null, moves: { atk: null, def: null } };
+        
+        // Sabitler
+        const ROWS = 7; const COLS = 5; let scenIdx = 0;
+        const SCENARIOS = [
+            { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+            { atk: [{r:6,c:2,l:'6'}, {r:4,c:0,l:'11'}, {r:4,c:4,l:'7'}, {r:5,c:2,l:'10'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:0,l:'2'}, {r:2,c:4,l:'3'}, {r:2,c:2,l:'4'}] },
+            { atk: [{r:6,c:1,l:'4'}, {r:6,c:3,l:'5'}, {r:5,c:2,l:'8'}, {r:2,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'4'}, {r:1,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+            { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
+        ];
+
+        // Yardımcı Fonksiyonlar (Hoisting ile çalışır ama garanti olsun)
         function el(id) { return document.getElementById(id); }
-        
-        function show(id) { 
-            if(el(id)) el(id).classList.remove('hidden'); 
-        }
-        
-        function hide(id) { 
-            if(el(id)) el(id).classList.add('hidden'); 
-        }
+        function show(id) { if(el(id)) el(id).classList.remove('hidden'); }
+        function hide(id) { if(el(id)) el(id).classList.add('hidden'); }
 
         window.onerror = function(msg) { 
             if(el('error-overlay')) {
@@ -171,22 +185,16 @@
             appId: "BURAYA_APP_ID_YAPISTIR"
         };
 
-        // Firebase Init
+        // Firebase Başlatma
         try {
             firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
             console.log("Firebase Başladı");
         } catch(e) {
             alert("Firebase Hatası: " + e.message);
         }
         
-        const db = firebase.database();
-
-        // --- GLOBAL DEĞİŞKENLER ---
-        let myRole = null;
-        let currentRoom = null;
-        let isHost = false;
-        
-        // --- LOBİ MANTIĞI ---
+        // --- LOBİ FONKSİYONLARI ---
         function showHostMenu() { hide('lobby-menu'); show('team-select-panel'); }
         function showJoinMenu() { hide('lobby-menu'); show('join-panel'); }
         function resetLobby() { location.reload(); }
@@ -246,16 +254,7 @@
             alert("Kopyalandı!");
         }
 
-        // --- OYUN MOTORU ---
-        const ROWS = 7; const COLS = 5; let scenIdx = 0;
-        const SCENARIOS = [
-            { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
-            { atk: [{r:6,c:2,l:'6'}, {r:4,c:0,l:'11'}, {r:4,c:4,l:'7'}, {r:5,c:2,l:'10'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:0,l:'2'}, {r:2,c:4,l:'3'}, {r:2,c:2,l:'4'}] },
-            { atk: [{r:6,c:1,l:'4'}, {r:6,c:3,l:'5'}, {r:5,c:2,l:'8'}, {r:2,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'4'}, {r:1,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
-            { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
-        ];
-        let gameState = { phase: 'INIT', players: [], ballOwnerId: null, selectedUnit: null, moves: { atk: null, def: null } };
-
+        // --- OYUN FONKSİYONLARI ---
         function selectScen(i, e) { scenIdx=i; document.querySelectorAll('.scenario-opt').forEach(x=>x.classList.remove('active')); e.classList.add('active'); }
 
         function startGame() {
@@ -294,6 +293,7 @@
                     }
                 }
                 else if (data.lastAction === 'RESULT') {
+                    // Result gelince alt barı gizle, modalı göster
                     el('bottom-wait-bar').classList.add('hidden');
                     showResult(data.title, data.desc); 
                     render();
@@ -301,7 +301,7 @@
             });
         }
 
-        // --- BEKLEME EKRANI (ALT BAR) ---
+        // --- UI FONKSİYONLARI ---
         function showWait(m) { 
             el('bottom-wait-text').innerText = m;
             el('bottom-wait-bar').classList.remove('hidden');
@@ -353,7 +353,7 @@
                         d.appendChild(t);
                     }
                     
-                    // İPUÇLARI (GÜNCELLENDİ)
+                    // İPUÇLARI
                     if(myRole==='atk' && gameState.phase==='ATTACK_PLAN' && gameState.selectedUnit) {
                         const actor = gameState.players.find(x=>x.id===gameState.selectedUnit);
                         // Sadece kendi takımını seçince göster
@@ -382,7 +382,7 @@
         }
         function addMark(e, t) { const m=document.createElement('div'); m.className=`marker ${t}`; e.appendChild(m); }
 
-        // --- INPUT (YENİLENDİ: HERKES HAREKET EDEBİLİR) ---
+        // --- INPUT ---
         function handleInput(r, c, targetPlayer) {
             if((myRole==='atk' && gameState.phase!=='ATTACK_PLAN') || (myRole==='def' && gameState.phase!=='DEFENSE_PLAN')) return;
             
@@ -398,13 +398,13 @@
                     if(!actor) return;
                     const dist = Math.max(Math.abs(actor.r - r), Math.abs(actor.c - c));
 
-                    // PAS
+                    // PAS (Sadece top sahibi, max 2 kare)
                     if(gameState.selectedUnit === gameState.ballOwnerId && targetPlayer && targetPlayer.team==='atk' && targetPlayer.id!==actor.id) { 
                         if(dist <= 2) {
                             gameState.moves.atk = {type:'PASS', r:r, c:c, targetId:targetPlayer.id, actorId:actor.id}; commitMove(); 
                         }
                     } 
-                    // HAREKET
+                    // HAREKET (1 kare)
                     else if(!targetPlayer && dist === 1) { 
                         gameState.moves.atk = {type:'MOVE', r:r, c:c, actorId:actor.id}; commitMove(); 
                     }
@@ -448,9 +448,11 @@
                 else { 
                     const ap = gameState.players.find(x=>x.id===am.actorId); 
                     ap.r=am.r; ap.c=am.c; 
+                    
                     if(am.actorId === gameState.ballOwnerId) { t="DRIBBLING"; d="Topla ilerledi."+msg; } 
                     else { t="KOŞU YAPILDI"; d="Boş alana topsuz koşu."+msg; }
                 }
+                
                 if(am.r===0 && (am.type==='PASS' || am.actorId === gameState.ballOwnerId)) { t="GOOOOOOOOL!"; d="Top ağlarda!"; }
             }
             updateDB('RESULT', t, d);
