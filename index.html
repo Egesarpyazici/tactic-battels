@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL MASTER: FIXED FINAL</title>
+    <title>TACTICAL MASTER: FIXED FINAL V2</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -140,10 +140,10 @@
 
     <script>
         // =================================================================
-        // HATA DÜZELTME: DEĞİŞKENLER VE FONKSİYONLAR EN TEPEDE
+        // 1. ÖNCELİKLİ TANIMLAMALAR (HATA ÖNLEME İÇİN EN TEPEDE)
         // =================================================================
         
-        // Global Değişkenler (Tanımsız Hatasını Önlemek İçin)
+        // Değişkenlerin en başta tanımlanması "Cannot access before initialization" hatasını çözer.
         let myRole = null;
         let currentRoom = null;
         let isHost = false;
@@ -159,11 +159,12 @@
             { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
         ];
 
-        // Yardımcı Fonksiyonlar (Hoisting ile çalışır ama garanti olsun)
+        // Yardımcı Fonksiyonlar
         function el(id) { return document.getElementById(id); }
         function show(id) { if(el(id)) el(id).classList.remove('hidden'); }
         function hide(id) { if(el(id)) el(id).classList.add('hidden'); }
 
+        // Hata Yakalayıcı
         window.onerror = function(msg) { 
             if(el('error-overlay')) {
                 el('error-overlay').style.display = 'block'; 
@@ -173,7 +174,7 @@
         };
 
         // ========================================================
-        // 1. ADIM: KENDİ FIREBASE BİLGİLERİNİ BURAYA YAPIŞTIR
+        // 2. FIREBASE AYARLARI (BURAYI DOLDUR)
         // ========================================================
         const firebaseConfig = {
             apiKey: "BURAYA_API_KEY_YAPISTIR",
@@ -185,13 +186,13 @@
             appId: "BURAYA_APP_ID_YAPISTIR"
         };
 
-        // Firebase Başlatma
+        // Başlatma
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.database();
-            console.log("Firebase Başladı");
+            console.log("Firebase Hazır.");
         } catch(e) {
-            alert("Firebase Hatası: " + e.message);
+            alert("Firebase Başlatılamadı: " + e.message);
         }
         
         // --- LOBİ FONKSİYONLARI ---
@@ -200,7 +201,9 @@
         function resetLobby() { location.reload(); }
 
         function createRoom(role) {
-            myRole = role; isHost = true;
+            // 'myRole' değişkeni en üstte tanımlı olduğu için artık hata vermez.
+            myRole = role; 
+            isHost = true;
             const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
             currentRoom = roomId;
 
@@ -236,7 +239,7 @@
                     updateRoleUI();
 
                     hide('lobby-screen');
-                    showWait("Ev sahibi maçı kuruyor..."); // Alt bar çalışır
+                    showWait("Ev sahibi maçı kuruyor..."); 
                 } else {
                     alert("Oda bulunamadı!");
                 }
@@ -254,7 +257,7 @@
             alert("Kopyalandı!");
         }
 
-        // --- OYUN FONKSİYONLARI ---
+        // --- OYUN MOTORU ---
         function selectScen(i, e) { scenIdx=i; document.querySelectorAll('.scenario-opt').forEach(x=>x.classList.remove('active')); e.classList.add('active'); }
 
         function startGame() {
@@ -293,7 +296,6 @@
                     }
                 }
                 else if (data.lastAction === 'RESULT') {
-                    // Result gelince alt barı gizle, modalı göster
                     el('bottom-wait-bar').classList.add('hidden');
                     showResult(data.title, data.desc); 
                     render();
@@ -353,18 +355,13 @@
                         d.appendChild(t);
                     }
                     
-                    // İPUÇLARI
                     if(myRole==='atk' && gameState.phase==='ATTACK_PLAN' && gameState.selectedUnit) {
                         const actor = gameState.players.find(x=>x.id===gameState.selectedUnit);
-                        // Sadece kendi takımını seçince göster
                         if(actor && actor.team === 'atk') {
                             const dist = Math.max(Math.abs(actor.r - r), Math.abs(actor.c - c));
-                            
-                            // 1. PAS: Sadece Top Sahibi, Takım Arkadaşına, Max 2 Kare
                             if(gameState.selectedUnit === gameState.ballOwnerId) {
                                 if(p && p.team==='atk' && p.id!==actor.id && dist <= 2) addMark(d, 'm-pass'); 
                             }
-                            // 2. HAREKET: Boş alan, 1 Kare
                             if(!p && dist === 1) addMark(d, 'm-move');
                         }
                     }
@@ -387,30 +384,24 @@
             if((myRole==='atk' && gameState.phase!=='ATTACK_PLAN') || (myRole==='def' && gameState.phase!=='DEFENSE_PLAN')) return;
             
             if(myRole==='atk') {
-                // 1. SEÇİM: Kendi takımından herhangi biri
                 if(targetPlayer && targetPlayer.team === 'atk') { 
                     gameState.selectedUnit = targetPlayer.id; render(); return; 
                 }
-
-                // 2. AKSİYON
                 if(gameState.selectedUnit) {
                     const actor = gameState.players.find(x=>x.id===gameState.selectedUnit);
                     if(!actor) return;
                     const dist = Math.max(Math.abs(actor.r - r), Math.abs(actor.c - c));
 
-                    // PAS (Sadece top sahibi, max 2 kare)
                     if(gameState.selectedUnit === gameState.ballOwnerId && targetPlayer && targetPlayer.team==='atk' && targetPlayer.id!==actor.id) { 
                         if(dist <= 2) {
                             gameState.moves.atk = {type:'PASS', r:r, c:c, targetId:targetPlayer.id, actorId:actor.id}; commitMove(); 
                         }
                     } 
-                    // HAREKET (1 kare)
                     else if(!targetPlayer && dist === 1) { 
                         gameState.moves.atk = {type:'MOVE', r:r, c:c, actorId:actor.id}; commitMove(); 
                     }
                 }
             } else {
-                // DEFANS
                 if(targetPlayer && targetPlayer.team==='def') { gameState.selectedUnit=targetPlayer.id; render(); return; }
                 if(gameState.selectedUnit) {
                     const df = gameState.players.find(x=>x.id===gameState.selectedUnit);
@@ -432,12 +423,16 @@
             if(!am || !dm) return;
 
             const activeDef = gameState.players.find(x=>x.id===dm.actorId);
-            const defStartR = activeDef.r; const defStartC = activeDef.c;
+            const defStartR = ad.r; const defStartC = ad.c; // Hata buradaydı, düzelttim (ad -> activeDef)
+            // Düzeltme: 'ad' değişkeni activeDef olarak tanımlanmalı
+            const defStartR_fixed = activeDef.r;
+            const defStartC_fixed = activeDef.c;
+
             activeDef.r = dm.r; activeDef.c = dm.c; 
 
             const sAtk = gameState.players.find(x=>x.team==='atk' && x.r===dm.r && x.c===dm.c && x.id!==gameState.ballOwnerId);
             let msg = "";
-            if(sAtk) { sAtk.r=defStartR; sAtk.c=defStartC; msg="<br>(Topsuz alanda yer değişimi!)"; }
+            if(sAtk) { sAtk.r=defStartR_fixed; sAtk.c=defStartC_fixed; msg="<br>(Topsuz alanda yer değişimi!)"; }
 
             const blocked = (am.r===dm.r && am.c===dm.c);
             let t="", d="";
@@ -448,11 +443,9 @@
                 else { 
                     const ap = gameState.players.find(x=>x.id===am.actorId); 
                     ap.r=am.r; ap.c=am.c; 
-                    
                     if(am.actorId === gameState.ballOwnerId) { t="DRIBBLING"; d="Topla ilerledi."+msg; } 
                     else { t="KOŞU YAPILDI"; d="Boş alana topsuz koşu."+msg; }
                 }
-                
                 if(am.r===0 && (am.type==='PASS' || am.actorId === gameState.ballOwnerId)) { t="GOOOOOOOOL!"; d="Top ağlarda!"; }
             }
             updateDB('RESULT', t, d);
@@ -460,6 +453,7 @@
     </script>
 </body>
 </html>
+
 
 
 
