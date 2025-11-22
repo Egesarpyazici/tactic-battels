@@ -3,106 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL MASTER: ONLINE ULTIMATE</title>
+    <title>TACTICAL MASTER: FINAL FIX</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
-    
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <style>
-        /* --- GÖRSEL TASARIM (CHAMPIONS EDITION) --- */
-        :root {
-            --grass-light: #4b8b3b; --grass-dark: #3a702e; --line-white: rgba(255,255,255,0.85);
-            --net-pattern: rgba(255,255,255,0.15); --kit-atk-primary: #d32f2f; --kit-atk-secondary: #b71c1c;
-            --kit-def-primary: #1976d2; --kit-def-secondary: #0d47a1; --ui-bg: #1e293b; --ui-border: #334155; --gold: #fbbf24;
-        }
+        /* --- STİLLER (AYNI) --- */
+        :root { --grass-light: #4b8b3b; --grass-dark: #3a702e; --line-white: rgba(255,255,255,0.85); --net-pattern: rgba(255,255,255,0.15); --kit-atk-primary: #d32f2f; --kit-atk-secondary: #b71c1c; --kit-def-primary: #1976d2; --kit-def-secondary: #0d47a1; --ui-bg: #1e293b; --ui-border: #334155; --gold: #fbbf24; }
         * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; min-height: 100vh; background: #111 radial-gradient(circle at 50% 30%, #2c3e50 0%, #000000 90%) fixed; color: #fff; font-family: 'Rajdhani', sans-serif; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
+        header { width: 100%; padding: 15px; text-align: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); z-index: 10; position: relative; flex-shrink: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        h1 { margin: 0; font-size: 2.2rem; letter-spacing: 4px; background: linear-gradient(to right, #fff, #ccc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3)); }
+        .status-bar { display: inline-block; margin-top: 8px; padding: 6px 20px; border-radius: 50px; background: rgba(0,0,0,0.5); font-size: 1.1rem; color: var(--gold); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(5px); }
+        .player-badge { position: absolute; right: 20px; top: 20px; background: #333; padding: 5px 10px; border-radius: 4px; font-size: 0.9rem; border: 1px solid #555; }
         
-        body {
-            margin: 0; min-height: 100vh; background: #111 radial-gradient(circle at 50% 30%, #2c3e50 0%, #000000 90%) fixed;
-            color: #fff; font-family: 'Rajdhani', sans-serif; display: flex; flex-direction: column; align-items: center; overflow-y: auto;
-        }
-
-        header {
-            width: 100%; padding: 15px; text-align: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-            z-index: 10; position: relative; flex-shrink: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-        }
-        h1 {
-            margin: 0; font-size: 2.2rem; letter-spacing: 4px; background: linear-gradient(to right, #fff, #ccc);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));
-        }
-        .status-bar {
-            display: inline-block; margin-top: 8px; padding: 6px 20px; border-radius: 50px;
-            background: rgba(0,0,0,0.5); font-size: 1.1rem; color: var(--gold); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(5px);
-        }
-        .player-badge {
-            position: absolute; right: 20px; top: 20px; background: #333; padding: 5px 10px; border-radius: 4px;
-            font-size: 0.9rem; border: 1px solid #555;
-        }
-
-        /* SAHA */
         #game-stage { flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; padding: 40px 20px; perspective: 1000px; }
-        
-        .pitch {
-            display: grid; grid-template-columns: repeat(5, 75px); grid-template-rows: repeat(7, 65px);
-            background-color: var(--grass-light);
-            background-image: repeating-linear-gradient(0deg, transparent, transparent 65px, rgba(0,0,0,0.1) 65px, rgba(0,0,0,0.1) 130px);
-            border: 15px solid #ddd; border-radius: 4px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 0 50px rgba(0,0,0,0.2);
-            position: relative; transform-style: preserve-3d; transform: rotateX(20deg);
-        }
+        .pitch { display: grid; grid-template-columns: repeat(5, 75px); grid-template-rows: repeat(7, 65px); background-color: var(--grass-light); background-image: repeating-linear-gradient(0deg, transparent, transparent 65px, rgba(0,0,0,0.1) 65px, rgba(0,0,0,0.1) 130px); border: 15px solid #ddd; border-radius: 4px; box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 0 50px rgba(0,0,0,0.2); position: relative; transform-style: preserve-3d; transform: rotateX(20deg); }
         .pitch::after { content: ''; position: absolute; inset: 5px; border: 2px solid var(--line-white); pointer-events: none; }
-
         .cell { position: relative; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.1); }
-        
-        /* KALE AĞI VE ÇİZGİLER */
-        .cell[data-r="0"] {
-            background-image: linear-gradient(var(--net-pattern) 1px, transparent 1px), linear-gradient(90deg, var(--net-pattern) 1px, transparent 1px);
-            background-size: 8px 8px; background-color: rgba(0,0,0,0.2); box-shadow: inset 0 -3px 0 var(--line-white);
-        }
+        .cell[data-r="0"] { background-image: linear-gradient(var(--net-pattern) 1px, transparent 1px), linear-gradient(90deg, var(--net-pattern) 1px, transparent 1px); background-size: 8px 8px; background-color: rgba(0,0,0,0.2); box-shadow: inset 0 -3px 0 var(--line-white); }
         .cell[data-r="3"] { border-bottom: 2px solid rgba(255,255,255,0.6); }
-
-        /* OYUNCULAR VE TOP */
-        .token {
-            width: 48px; height: 48px; border-radius: 50%; display: flex; justify-content: center; align-items: center;
-            font-weight: 800; font-size: 18px; color: white; position: relative; z-index: 5;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); background-size: 100% 100%;
-            box-shadow: 0 5px 10px rgba(0,0,0,0.4); border: 2px solid #fff;
-        }
+        .token { width: 48px; height: 48px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 18px; color: white; position: relative; z-index: 5; transition: all 0.4s; background-size: 100% 100%; box-shadow: 0 5px 10px rgba(0,0,0,0.4); border: 2px solid #fff; }
         .atk { background: repeating-linear-gradient(45deg, var(--kit-atk-primary), var(--kit-atk-primary) 10px, var(--kit-atk-secondary) 10px, var(--kit-atk-secondary) 20px); }
         .def { background: radial-gradient(circle at 30% 30%, var(--kit-def-primary), var(--kit-def-secondary)); }
-        
-        .ball {
-            position: absolute; width: 20px; height: 20px; border-radius: 50%; top: -8px; right: -8px; z-index: 15;
-            background-color: #fff;
-            background-image: radial-gradient(circle at 40% 40%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%),
-                conic-gradient(#fff 0deg, #fff 45deg, #222 45deg, #222 90deg, #fff 90deg, #fff 135deg, #222 135deg, #222 180deg, #fff 180deg);
-            background-size: 100% 100%, 12px 12px; box-shadow: 0 5px 10px rgba(0,0,0,0.5); border: 1px solid #ccc;
-            animation: floatBall 2s infinite ease-in-out;
-        }
+        .ball { position: absolute; width: 20px; height: 20px; border-radius: 50%; top: -8px; right: -8px; z-index: 15; background: #fff; box-shadow: 0 5px 10px rgba(0,0,0,0.5); border: 1px solid #ccc; animation: floatBall 2s infinite ease-in-out; }
         @keyframes floatBall { 0%, 100% {transform: translateY(0);} 50% {transform: translateY(-2px);} }
         .selected { transform: scale(1.2) translateY(-5px); box-shadow: 0 15px 25px rgba(0,0,0,0.6); border-color: var(--gold); z-index: 20; }
-
-        /* İŞARETÇİLER */
         .marker { position: absolute; width: 100%; height: 100%; pointer-events: none; display: flex; justify-content: center; align-items: center; }
         .m-move::after { content: ''; width: 20px; height: 20px; background: rgba(251, 191, 36, 0.4); border: 2px solid rgba(251, 191, 36, 0.8); border-radius: 50%; animation: pulse 1s infinite; }
         .m-pass::after { content: ''; width: 50px; height: 50px; border: 2px dashed rgba(74, 222, 128, 0.8); border-radius: 50%; animation: spinSlow 4s infinite linear; }
         .m-block { background: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.2) 10px, transparent 10px, transparent 20px); border: 2px solid rgba(239, 68, 68, 0.6); }
         @keyframes pulse { 0% {transform: scale(0.8); opacity: 1;} 100% {transform: scale(1.2); opacity: 0;} }
         @keyframes spinSlow { 100% {transform: rotate(360deg);} }
-
-        /* UI PANELLERİ */
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; transition: opacity 0.3s; }
+        
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; transition: opacity 0.3s; }
         .hidden { opacity: 0; pointer-events: none; }
         .card { background: var(--ui-bg); padding: 40px; border-radius: 16px; border: 1px solid var(--ui-border); text-align: center; width: 90%; max-width: 500px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
-        
         .btn { background: linear-gradient(to bottom, #2563eb, #1d4ed8); border: none; border-bottom: 4px solid #1e40af; padding: 16px 32px; color: white; font-family: 'Rajdhani', sans-serif; font-size: 1.2rem; font-weight: 700; border-radius: 8px; cursor: pointer; margin-top: 20px; text-transform: uppercase; letter-spacing: 1px; width: 100%; transition: all 0.1s; }
-        .btn:active { transform: translateY(2px); border-bottom-width: 2px; }
         .btn-secondary { background: #475569; border-color: #334155; margin-top: 10px; }
         .btn-danger { background: linear-gradient(to bottom, #dc2626, #b91c1c); border-color: #991b1b; }
         .btn-atk { background: linear-gradient(to bottom, #d32f2f, #b71c1c); border-color: #7f1d1d; } 
         .btn-def { background: linear-gradient(to bottom, #1976d2, #0d47a1); border-color: #1e3a8a; }
-
         .input-box { width: 100%; padding: 15px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: white; font-size: 1.5rem; text-align: center; border-radius: 8px; letter-spacing: 3px; }
         .scenario-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
         .scenario-opt { background: #334155; border: 2px solid transparent; padding: 15px; border-radius: 8px; cursor: pointer; transition: all 0.2s; text-align: left; }
@@ -110,13 +53,17 @@
         .scenario-opt.active { border-color: var(--gold); background: #1e293b; box-shadow: 0 0 15px rgba(251, 191, 36, 0.2); }
         .scenario-title { font-weight: 800; color: #fff; font-size: 1.1em; }
         .scenario-sub { font-size: 0.9em; color: #94a3b8; margin-top: 4px; }
-        
         .lobby-code { font-size: 2em; color: var(--gold); letter-spacing: 3px; font-weight: bold; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; user-select: text; cursor: pointer; }
         .waiting-spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top-color: var(--gold); border-radius: 50%; animation: spin 1s infinite linear; margin: 20px auto; }
         @keyframes spin { to {transform: rotate(360deg);} }
+        
+        /* HATA GÖSTERİMİ */
+        #error-overlay { position: fixed; top: 0; left: 0; width: 100%; background: red; color: white; text-align: center; padding: 10px; z-index: 99999; display: none; }
     </style>
 </head>
 <body>
+
+    <div id="error-overlay">HATA OLUŞTU! Detaylar konsolda.</div>
 
     <header>
         <h1>TACTICAL MASTER</h1>
@@ -130,7 +77,7 @@
         <div class="card">
             <h2 style="color:var(--gold);">ONLINE LOBİ</h2>
             <div id="lobby-menu">
-                <button class="btn" onclick="showTeamSelect()">OYUN KUR (HOST)</button>
+                <button class="btn" onclick="showHostMenu()">OYUN KUR (HOST)</button>
                 <button class="btn btn-secondary" onclick="showJoinMenu()">OYUNA KATIL (GUEST)</button>
             </div>
             <div id="team-select-panel" class="hidden">
@@ -168,289 +115,276 @@
         </div>
     </div>
 
-    <div id="wait-screen" class="overlay hidden">
-        <div class="card">
-            <h2 style="color:var(--gold);">BEKLENİYOR</h2>
-            <div class="waiting-spinner"></div>
-            <p id="wait-msg">...</p>
-        </div>
-    </div>
+    <div id="wait-screen" class="overlay hidden"><div class="card"><h2 style="color:var(--gold);">BEKLENİYOR</h2><div class="waiting-spinner"></div><p id="wait-msg">...</p></div></div>
+    <div id="result-screen" class="overlay hidden"><div class="card"><h2 id="result-title">SONUÇ</h2><div style="height:4px; width:60px; background:var(--gold); margin:20px auto;"></div><p id="result-desc"></p><button class="btn" id="result-btn" onclick="closeResult()">TAMAM</button></div></div>
 
-    <div id="result-screen" class="overlay hidden">
-        <div class="card">
-            <h2 id="result-title">SONUÇ</h2>
-            <div style="height: 4px; width: 60px; background: var(--gold); margin: 20px auto;"></div>
-            <p id="result-desc"></p>
-            <button class="btn" id="result-btn" onclick="closeResult()">TAMAM</button>
-        </div>
-    </div>
+    <script>
+        // --- HATA YÖNETİMİ ---
+        window.onerror = function(msg, url, line) {
+            document.getElementById('error-overlay').style.display = 'block';
+            document.getElementById('error-overlay').innerText = `HATA: ${msg}`;
+            return false;
+        };
 
-<script>
-    // ========================================================
-    // FIREBASE YAPILANDIRMASI (Senin Resimdeki Veriler)
-    // ========================================================
-    const firebaseConfig = {
-        apiKey: "AIzaSyCiBt7rhXk1Q5ng9HoNt9fgH1PEpqlYivA",
-        authDomain: "taktikfutbol.firebaseapp.com",
-        databaseURL: "https://taktikfutbol-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "taktikfutbol",
-        storageBucket: "taktikfutbol.firebasestorage.app",
-        messagingSenderId: "56995748886",
-        appId: "1:56995748886:web:5b7c4ece9c5f430a92a937",
-        measurementId: "G-RCCP6VTXSL"
-    };
+        // --- FIREBASE CONFIG (SENİN BİLGİLERİN) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCiBt7rhXk1Q5ng9HoNt9fgH1PEpqlYivA",
+            authDomain: "taktikfutbol.firebaseapp.com",
+            databaseURL: "https://taktikfutbol-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taktikfutbol",
+            storageBucket: "taktikfutbol.firebasestorage.app",
+            messagingSenderId: "56995748886",
+            appId: "1:56995748886:web:5b7c4ece9c5f430a92a937",
+            measurementId: "G-RCCP6VTXSL"
+        };
 
-    // Firebase Başlatma Kontrolü
-    let db;
-    try {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.database();
-        console.log("Firebase Bağlandı!");
-    } catch (e) {
-        alert("Hata: Firebase yüklenemedi. İnternetinizi kontrol edin.\n" + e);
-    }
-
-    // --- DEĞİŞKENLER ---
-    let myRole = null;
-    let currentRoom = null;
-    let isHost = false;
-    
-    // --- LOBİ ---
-    function showHostMenu() { document.getElementById('lobby-menu').classList.add('hidden'); document.getElementById('team-select-panel').classList.remove('hidden'); }
-    function showJoinMenu() { document.getElementById('lobby-menu').classList.add('hidden'); document.getElementById('join-panel').classList.remove('hidden'); }
-    function resetLobby() { location.reload(); }
-
-    function createRoom(role) {
-        myRole = role; isHost = true;
-        const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
-        currentRoom = roomId;
-
-        // Oda verisini yaz
-        db.ref('rooms/' + roomId).set({ hostRole: role, status: 'waiting', createdAt: Date.now() });
-
-        // Katılımı dinle
-        db.ref('rooms/' + roomId + '/status').on('value', (snapshot) => {
-            if (snapshot.val() === 'joined') {
-                document.getElementById('lobby-screen').classList.add('hidden');
-                document.getElementById('scenario-screen').classList.remove('hidden');
-                updateRoleUI();
-            }
-        });
-
-        document.getElementById('team-select-panel').classList.add('hidden');
-        document.getElementById('host-panel').classList.remove('hidden');
-        document.getElementById('my-id-display').innerText = roomId;
-    }
-
-    function joinRoom() {
-        const code = document.getElementById('room-code-input').value.toUpperCase().trim();
-        if(!code) return alert("Kod girin!");
-        currentRoom = code; isHost = false;
-
-        db.ref('rooms/' + code).get().then((snapshot) => {
-            if (snapshot.exists()) {
-                const roomData = snapshot.val();
-                myRole = (roomData.hostRole === 'atk') ? 'def' : 'atk';
-                
-                db.ref('rooms/' + code).update({ status: 'joined' });
-                
-                startGameListener(); // Dinlemeye başla
-                updateRoleUI();
-
-                document.getElementById('lobby-screen').classList.add('hidden');
-                showWait("Ev sahibi maçı kuruyor...");
-            } else {
-                alert("Oda bulunamadı!");
-            }
-        });
-    }
-
-    function updateRoleUI() {
-        const badge = document.getElementById('role-badge');
-        if(myRole === 'atk') { badge.innerText = "HÜCUM (KIRMIZI)"; badge.style.color = "#ff8a8a"; }
-        else { badge.innerText = "SAVUNMA (MAVİ)"; badge.style.color = "#8ab4ff"; }
-    }
-
-    function copyId() { navigator.clipboard.writeText(document.getElementById('my-id-display').innerText); alert("Kopyalandı!"); }
-
-    // --- OYUN MOTORU ---
-    const ROWS = 7; const COLS = 5; let scenIdx = 0;
-    const SCENARIOS = [
-        { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
-        { atk: [{r:6,c:2,l:'6'}, {r:4,c:0,l:'11'}, {r:4,c:4,l:'7'}, {r:5,c:2,l:'10'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:0,l:'2'}, {r:2,c:4,l:'3'}, {r:2,c:2,l:'4'}] },
-        { atk: [{r:6,c:1,l:'4'}, {r:6,c:3,l:'5'}, {r:5,c:2,l:'8'}, {r:2,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'4'}, {r:1,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
-        { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
-    ];
-    let gameState = { phase: 'INIT', players: [], ballOwnerId: null, selectedUnit: null, moves: { atk: null, def: null } };
-
-    const pitch = document.getElementById('pitch');
-    const statusText = document.getElementById('status-text');
-
-    function selectScen(i, el) { scenIdx=i; document.querySelectorAll('.scenario-opt').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }
-
-    function startGame() {
-        const s = SCENARIOS[scenIdx];
-        gameState.players = [];
-        s.atk.forEach((p,i)=>gameState.players.push({id:`a${i}`, team:'atk', r:p.r, c:p.c, label:p.l}));
-        s.def.forEach((p,i)=>gameState.players.push({id:`d${i}`, team:'def', r:p.r, c:p.c, label:p.l}));
-        gameState.ballOwnerId = gameState.players[0].id;
-        gameState.phase = 'ATTACK_PLAN';
-        
-        updateDB('START');
-        document.getElementById('scenario-screen').classList.add('hidden');
-        startGameListener();
-    }
-
-    function updateDB(type, title="", desc="") {
-        db.ref('rooms/' + currentRoom + '/game').set({
-            state: gameState, lastAction: type, title: title, desc: desc, ts: Date.now()
-        });
-    }
-
-    function startGameListener() {
-        db.ref('rooms/' + currentRoom + '/game').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
-            gameState = data.state;
-
-            if (data.lastAction === 'START' || data.lastAction === 'NEXT') {
-                hideWait(); document.getElementById('result-screen').classList.add('hidden');
-                render(); updateUI();
-            }
-            else if (data.lastAction === 'MOVED') {
-                hideWait(); render(); updateUI();
-                // Host isen ve resolve zamanı geldiyse
-                if(isHost && gameState.phase === 'RESOLVE') {
-                    setTimeout(resolveTurn, 500);
-                }
-            }
-            else if (data.lastAction === 'RESULT') {
-                showResult(data.title, data.desc); render();
-            }
-        });
-    }
-
-    function updateUI() {
-        const status = document.getElementById('status-text');
-        if(gameState.phase === 'ATTACK_PLAN') {
-            if(myRole === 'atk') { status.innerText = "HÜCUM SIRA SENDE"; status.style.color = "#fbbf24"; }
-            else { status.innerText = "RAKİP HÜCUM YAPIYOR"; status.style.color = "#fff"; showWait("Rakip düşünüyor..."); }
-        } 
-        else if(gameState.phase === 'DEFENSE_PLAN' || gameState.phase === 'WAIT_DEF') {
-            if(gameState.phase === 'WAIT_DEF') gameState.phase = 'DEFENSE_PLAN';
-            if(myRole === 'def') { status.innerText = "SAVUNMA SIRA SENDE"; status.style.color = "#60a5fa"; }
-            else { status.innerText = "RAKİP SAVUNMA YAPIYOR"; status.style.color = "#fff"; showWait("Rakip blokluyor..."); }
+        try {
+            firebase.initializeApp(firebaseConfig);
+            console.log("Firebase Başladı");
+        } catch(e) {
+            alert("Firebase Bağlantı Hatası: " + e.message);
         }
-    }
-
-    function showWait(m) { document.getElementById('wait-msg').innerText = m; document.getElementById('wait-screen').classList.remove('hidden'); }
-    function hideWait() { document.getElementById('wait-screen').classList.add('hidden'); }
-
-    function showResult(t, d) {
-        document.getElementById('result-title').innerText = t;
-        document.getElementById('result-desc').innerHTML = d;
-        const btn = document.getElementById('result-btn');
-        const isOver = t.includes("GOL") || t.includes("TOP KAYBI");
-        if(isOver) { btn.innerText = "YENİ MAÇ"; btn.className = "btn btn-danger"; btn.onclick = () => location.reload(); }
-        else { btn.innerText = "DEVAM ET"; btn.className = "btn"; btn.onclick = nextTurn; }
         
-        document.getElementById('wait-screen').classList.add('hidden');
-        document.getElementById('result-screen').classList.remove('hidden');
-    }
+        const db = firebase.database();
 
-    function nextTurn() {
-        if(!isHost) { showWait("Host bekleniyor..."); document.getElementById('result-screen').classList.add('hidden'); return; }
-        gameState.phase = 'ATTACK_PLAN'; gameState.selectedUnit = null; gameState.moves = {atk:null, def:null};
-        updateDB('NEXT');
-    }
+        // --- GLOBAL VARIABLES ---
+        let myRole = null;
+        let currentRoom = null;
+        let isHost = false;
+        let gameListener = null;
 
-    // --- RENDER ---
-    function render() {
-        pitch.innerHTML = '';
-        for(let r=0; r<ROWS; r++) {
-            for(let c=0; c<COLS; c++) {
-                const cell = document.createElement('div'); cell.className = 'cell'; cell.dataset.r = r; cell.dataset.c = c;
-                const p = gameState.players.find(x=>x.r===r && x.c===c);
-                if(p) {
-                    const t = document.createElement('div'); t.className = `token ${p.team}`; t.innerText = p.label;
-                    if(p.id===gameState.ballOwnerId) { t.innerHTML += `<div class="ball"></div>`; t.style.borderColor = "#fbbf24"; t.style.zIndex = "10"; }
-                    if(gameState.selectedUnit===p.id) t.classList.add('selected');
-                    cell.appendChild(t);
+        // --- UI HELPERS ---
+        const el = (id) => document.getElementById(id);
+        const show = (id) => el(id).classList.remove('hidden');
+        const hide = (id) => el(id).classList.add('hidden');
+
+        // --- LOBBY LOGIC ---
+        function showHostMenu() { hide('lobby-menu'); show('team-select-panel'); }
+        function showJoinMenu() { hide('lobby-menu'); show('join-panel'); }
+        function resetLobby() { location.reload(); }
+
+        function createRoom(role) {
+            myRole = role; isHost = true;
+            const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+            currentRoom = roomId;
+
+            // Oda oluştur
+            db.ref('rooms/' + roomId).set({
+                hostRole: role,
+                status: 'waiting',
+                createdAt: Date.now()
+            });
+
+            // Dinle
+            db.ref('rooms/' + roomId + '/status').on('value', (snapshot) => {
+                if (snapshot.val() === 'joined') {
+                    hide('lobby-screen'); show('scenario-screen');
+                    updateRoleUI();
                 }
-                
-                // İpuçları
-                if(myRole==='atk' && gameState.phase==='ATTACK_PLAN' && gameState.selectedUnit===gameState.ballOwnerId) {
+            });
+
+            hide('team-select-panel'); show('host-panel');
+            el('my-id-display').innerText = roomId;
+        }
+
+        function joinRoom() {
+            const code = el('room-code-input').value.toUpperCase().trim();
+            if(!code) return alert("Kod girin!");
+            currentRoom = code; isHost = false;
+
+            db.ref('rooms/' + code).get().then((snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    myRole = (data.hostRole === 'atk') ? 'def' : 'atk';
+                    
+                    db.ref('rooms/' + code).update({ status: 'joined' });
+                    startGameListener();
+                    updateRoleUI();
+
+                    hide('lobby-screen');
+                    showWait("Ev sahibi maçı kuruyor...");
+                } else {
+                    alert("Oda bulunamadı!");
+                }
+            });
+        }
+
+        function updateRoleUI() {
+            const b = el('role-badge');
+            if(myRole === 'atk') { b.innerText = "HÜCUM (KIRMIZI)"; b.style.color = "#ff8a8a"; }
+            else { b.innerText = "SAVUNMA (MAVİ)"; b.style.color = "#8ab4ff"; }
+        }
+
+        function copyId() {
+            navigator.clipboard.writeText(el('my-id-display').innerText);
+            alert("Kopyalandı!");
+        }
+
+        // --- GAME LOGIC ---
+        const ROWS = 7; const COLS = 5; let scenIdx = 0;
+        const SCENARIOS = [
+            { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+            { atk: [{r:6,c:2,l:'6'}, {r:4,c:0,l:'11'}, {r:4,c:4,l:'7'}, {r:5,c:2,l:'10'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:0,l:'2'}, {r:2,c:4,l:'3'}, {r:2,c:2,l:'4'}] },
+            { atk: [{r:6,c:1,l:'4'}, {r:6,c:3,l:'5'}, {r:5,c:2,l:'8'}, {r:2,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'4'}, {r:1,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+            { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
+        ];
+        let gameState = { phase: 'INIT', players: [], ballOwnerId: null, selectedUnit: null, moves: { atk: null, def: null } };
+
+        function selectScen(i, e) { scenIdx=i; document.querySelectorAll('.scenario-opt').forEach(x=>x.classList.remove('active')); e.classList.add('active'); }
+
+        function startGame() {
+            const s = SCENARIOS[scenIdx];
+            gameState.players = [];
+            s.atk.forEach((p,i)=>gameState.players.push({id:`a${i}`, team:'atk', r:p.r, c:p.c, label:p.l}));
+            s.def.forEach((p,i)=>gameState.players.push({id:`d${i}`, team:'def', r:p.r, c:p.c, label:p.l}));
+            gameState.ballOwnerId = gameState.players[0].id;
+            gameState.phase = 'ATTACK_PLAN';
+            
+            updateDB('START');
+            hide('scenario-screen');
+            startGameListener();
+        }
+
+        function updateDB(type, title="", desc="") {
+            db.ref('rooms/' + currentRoom + '/game').set({
+                state: gameState, lastAction: type, title: title, desc: desc, ts: Date.now()
+            });
+        }
+
+        function startGameListener() {
+            db.ref('rooms/' + currentRoom + '/game').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (!data) return;
+                gameState = data.state;
+
+                if (data.lastAction === 'START' || data.lastAction === 'NEXT') {
+                    hideWait(); hide('result-screen'); render(); updateUI();
+                }
+                else if (data.lastAction === 'MOVED') {
+                    hideWait(); render(); updateUI();
+                    if(isHost && gameState.phase === 'RESOLVE') setTimeout(resolveTurn, 500);
+                }
+                else if (data.lastAction === 'RESULT') {
+                    showResult(data.title, data.desc); render();
+                }
+            });
+        }
+
+        function showWait(m) { el('wait-msg').innerText = m; show('wait-screen'); }
+        function hideWait() { hide('wait-screen'); }
+
+        function updateUI() {
+            const s = el('status-text');
+            if(gameState.phase === 'ATTACK_PLAN') {
+                if(myRole === 'atk') { s.innerText = "HÜCUM SIRA SENDE"; s.style.color = "#fbbf24"; }
+                else { s.innerText = "RAKİP HÜCUM YAPIYOR"; s.style.color = "#fff"; showWait("Rakip düşünüyor..."); }
+            } 
+            else if(gameState.phase === 'DEFENSE_PLAN' || gameState.phase === 'WAIT_DEF') {
+                if(gameState.phase === 'WAIT_DEF') gameState.phase = 'DEFENSE_PLAN';
+                if(myRole === 'def') { s.innerText = "SAVUNMA SIRA SENDE"; s.style.color = "#60a5fa"; }
+                else { s.innerText = "RAKİP SAVUNMA YAPIYOR"; s.style.color = "#fff"; showWait("Rakip blokluyor..."); }
+            }
+        }
+
+        function showResult(t, d) {
+            el('result-title').innerText = t; el('result-desc').innerHTML = d;
+            const btn = el('result-btn');
+            const isOver = t.includes("GOL") || t.includes("TOP KAYBI");
+            if(isOver) { btn.innerText = "YENİ MAÇ"; btn.className = "btn btn-danger"; btn.onclick = () => location.reload(); }
+            else { btn.innerText = "DEVAM ET"; btn.className = "btn"; btn.onclick = nextTurn; }
+            hideWait(); show('result-screen');
+        }
+
+        function nextTurn() {
+            if(!isHost) { showWait("Host bekleniyor..."); hide('result-screen'); return; }
+            gameState.phase = 'ATTACK_PLAN'; gameState.selectedUnit = null; gameState.moves = {atk:null, def:null};
+            updateDB('NEXT');
+        }
+
+        // --- RENDER ---
+        const pitch = el('pitch');
+        function render() {
+            pitch.innerHTML = '';
+            for(let r=0; r<ROWS; r++) {
+                for(let c=0; c<COLS; c++) {
+                    const d = document.createElement('div'); d.className = 'cell'; d.dataset.r = r; d.dataset.c = c;
+                    const p = gameState.players.find(x=>x.r===r && x.c===c);
+                    if(p) {
+                        const t = document.createElement('div'); t.className = `token ${p.team}`; t.innerText = p.label;
+                        if(p.id===gameState.ballOwnerId) { t.innerHTML += `<div class="ball"></div>`; t.style.borderColor = "#fbbf24"; t.style.zIndex = "10"; }
+                        if(gameState.selectedUnit===p.id) t.classList.add('selected');
+                        d.appendChild(t);
+                    }
+                    
+                    // GHOST MARKERS
+                    if(myRole==='atk' && gameState.phase==='ATTACK_PLAN' && gameState.selectedUnit===gameState.ballOwnerId) {
+                        const o = gameState.players.find(x=>x.id===gameState.ballOwnerId);
+                        if(p && p.team==='atk' && p.id!==o.id) addMark(d,'m-pass');
+                        if(!p && Math.abs(o.r-r)<=1 && Math.abs(o.c-c)<=1) addMark(d,'m-move');
+                    }
+                    if(myRole==='def' && gameState.phase==='DEFENSE_PLAN' && gameState.selectedUnit) {
+                        const df = gameState.players.find(x=>x.id===gameState.selectedUnit);
+                        if(df && df.team==='def' && Math.abs(df.r-r)<=1 && Math.abs(df.c-c)<=1) addMark(d,'m-block');
+                    }
+                    d.onclick = () => handleInp(r,c,p);
+                    pitch.appendChild(d);
+                }
+            }
+        }
+        function addMark(e, t) { const m=document.createElement('div'); m.className=`marker ${t}`; e.appendChild(m); }
+
+        function handleInp(r, c, p) {
+            if((myRole==='atk' && gameState.phase!=='ATTACK_PLAN') || (myRole==='def' && gameState.phase!=='DEFENSE_PLAN')) return;
+            
+            if(myRole==='atk') {
+                if(p && p.id===gameState.ballOwnerId) { gameState.selectedUnit=p.id; render(); return; }
+                if(gameState.selectedUnit===gameState.ballOwnerId) {
                     const o = gameState.players.find(x=>x.id===gameState.ballOwnerId);
-                    if(p && p.team==='atk' && p.id!==o.id) addMark(cell,'m-pass');
-                    if(!p && Math.abs(o.r-r)<=1 && Math.abs(o.c-c)<=1) addMark(cell,'m-move');
+                    if(p && p.team==='atk' && p.id!==o.id) { 
+                        gameState.moves.atk={type:'PASS', r:r, c:c, targetId:p.id, actorId:o.id}; commitMove(); 
+                    } else if(!p && Math.abs(o.r-r)<=1 && Math.abs(o.c-c)<=1) { 
+                        gameState.moves.atk={type:'MOVE', r:r, c:c, actorId:o.id}; commitMove(); 
+                    }
                 }
-                if(myRole==='def' && gameState.phase==='DEFENSE_PLAN' && gameState.selectedUnit) {
+            } else {
+                if(p && p.team==='def') { gameState.selectedUnit=p.id; render(); return; }
+                if(gameState.selectedUnit) {
                     const df = gameState.players.find(x=>x.id===gameState.selectedUnit);
-                    if(df && df.team==='def' && Math.abs(df.r-r)<=1 && Math.abs(df.c-c)<=1) addMark(cell,'m-block');
-                }
-                cell.onclick = () => handleInput(r,c,p);
-                pitch.appendChild(cell);
-            }
-        }
-    }
-    function addMark(el, type) { const m=document.createElement('div'); m.className=`marker ${type}`; el.appendChild(m); }
-
-    // --- INPUT ---
-    function handleInput(r, c, targetPlayer) {
-        if((myRole==='atk' && gameState.phase!=='ATTACK_PLAN') || (myRole==='def' && gameState.phase!=='DEFENSE_PLAN')) return;
-        
-        if(myRole==='atk') {
-            if(targetPlayer && targetPlayer.id===gameState.ballOwnerId) { gameState.selectedUnit=targetPlayer.id; render(); return; }
-            if(gameState.selectedUnit===gameState.ballOwnerId) {
-                const o = gameState.players.find(x=>x.id===gameState.ballOwnerId);
-                if(targetPlayer && targetPlayer.team==='atk' && targetPlayer.id!==o.id) { 
-                    gameState.moves.atk={type:'PASS', r:r, c:c, targetId:targetPlayer.id, actorId:o.id}; commitMove(); 
-                } else if(!targetPlayer && Math.abs(o.r-r)<=1 && Math.abs(o.c-c)<=1) { 
-                    gameState.moves.atk={type:'MOVE', r:r, c:c, actorId:o.id}; commitMove(); 
-                }
-            }
-        } else {
-            if(targetPlayer && targetPlayer.team==='def') { gameState.selectedUnit=targetPlayer.id; render(); return; }
-            if(gameState.selectedUnit) {
-                const df = gameState.players.find(x=>x.id===gameState.selectedUnit);
-                if(Math.abs(df.r-r)<=1 && Math.abs(df.c-c)<=1) { 
-                    gameState.moves.def={r:r, c:c, actorId:df.id}; commitMove(); 
+                    if(Math.abs(df.r-r)<=1 && Math.abs(df.c-c)<=1) { 
+                        gameState.moves.def={r:r, c:c, actorId:df.id}; commitMove(); 
+                    }
                 }
             }
         }
-    }
 
-    function commitMove() {
-        if(myRole==='atk') { gameState.phase='WAIT_DEF'; updateDB('MOVED'); }
-        else { gameState.phase='RESOLVE'; updateDB('MOVED'); }
-    }
-
-    // --- RESOLVE LOGIC ---
-    function resolveTurn() {
-        const am = gameState.moves.atk; const dm = gameState.moves.def;
-        if(!am || !dm) return;
-
-        const activeDef = gameState.players.find(x=>x.id===dm.actorId);
-        const defStartR = activeDef.r; const defStartC = activeDef.c;
-        activeDef.r = dm.r; activeDef.c = dm.c; // Defansı taşı
-
-        // Swap Logic
-        const sAtk = gameState.players.find(x=>x.team==='atk' && x.r===dm.r && x.c===dm.c && x.id!==gameState.ballOwnerId);
-        let msg = "";
-        if(sAtk) { sAtk.r=defStartR; sAtk.c=defStartC; msg="<br>(Topsuz alanda yer değişimi!)"; }
-
-        const blocked = (am.r===dm.r && am.c===dm.c);
-        let t="", d="";
-
-        if(blocked) { t="TOP KAYBI!"; d="Savunma blokladı."+msg; }
-        else {
-            if(am.type==='PASS') { gameState.ballOwnerId=am.targetId; t="PAS BAŞARILI"; d="Atak devam."+msg; }
-            else { const ap=gameState.players.find(x=>x.id===am.actorId); ap.r=am.r; ap.c=am.c; t="ÇALIM BAŞARILI"; d="Boş alan."+msg; }
-            if(am.r===0) { t="GOOOOOOOOL!"; d="Top ağlarda!"; }
+        function commitMove() {
+            if(myRole==='atk') { gameState.phase='WAIT_DEF'; updateDB('MOVED'); }
+            else { gameState.phase='RESOLVE'; updateDB('MOVED'); }
         }
-        updateDB('RESULT', t, d);
-    }
-</script>
+
+        function resolveTurn() {
+            const am = gameState.moves.atk; const dm = gameState.moves.def;
+            if(!am || !dm) return;
+
+            const ad = gameState.players.find(x=>x.id===dm.actorId);
+            const defStartR = ad.r; const defStartC = ad.c;
+            ad.r = dm.r; ad.c = dm.c; 
+
+            const sAtk = gameState.players.find(x=>x.team==='atk' && x.r===dm.r && x.c===dm.c && x.id!==gameState.ballOwnerId);
+            let msg = "";
+            if(sAtk) { sAtk.r=defStartR; sAtk.c=defStartC; msg="<br>(Topsuz alanda yer değişimi!)"; }
+
+            const blocked = (am.r===dm.r && am.c===dm.c);
+            let t="", d="";
+
+            if(blocked) { t="TOP KAYBI!"; d="Savunma blokladı."+msg; }
+            else {
+                if(am.type==='PASS') { gameState.ballOwnerId=am.targetId; t="PAS BAŞARILI"; d="Atak devam."+msg; }
+                else { const ap=gameState.players.find(x=>x.id===am.actorId); ap.r=am.r; ap.c=am.c; t="ÇALIM BAŞARILI"; d="Boş alan."+msg; }
+                if(am.r===0) { t="GOOOOOOOOL!"; d="Top ağlarda!"; }
+            }
+            updateDB('RESULT', t, d);
+        }
+    </script>
 </body>
 </html>
-
