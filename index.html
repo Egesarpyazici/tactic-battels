@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TACTICAL MASTER: ONLINE SELECT</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root {
+            /* --- RENK PALETİ (Korundu) --- */
+            --grass-light: #4b8b3b;
+            --grass-dark: #3a702e;
+            --line-white: rgba(255, 255, 255, 0.85);
+            --net-pattern: rgba(255, 255, 255, 0.15);
+            
+            --kit-atk-primary: #d32f2f;
+            --kit-atk-secondary: #b71c1c;
+            --kit-def-primary: #1976d2;
+            --kit-def-secondary: #0d47a1;
+            
+            --ui-bg: #1e293b;
+            --ui-border: #334155;
+            --gold: #fbbf24;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            background-color: #111;
+            background-image: radial-gradient(circle at 50% 30%, #2c3e50 0%, #000000 90%);
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* --- HEADER --- */
+        header {
+            width: 100%;
+            padding: 15px;
+            text-align: center;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            z-index: 10;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            position: relative;
+        }
+        h1 {
+            margin: 0; font-size: 2.2rem; letter-spacing: 4px; text-transform: uppercase;
+            background: linear-gradient(to right, #fff, #ccc);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-weight: 800; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));
+        }
+        .status-bar {
+            display: inline-block; margin-top: 8px; padding: 6px 20px;
+            border-radius: 50px; background: rgba(0,0,0,0.5);
+            font-size: 1.1rem; color: var(--gold); border: 1px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(5px);
+        }
+        .player-badge {
+            position: absolute; right: 20px; top: 20px;
+            background: #333; padding: 5px 10px; border-radius: 4px;
+            font-size: 0.9rem; border: 1px solid #555;
+        }
+
+        /* --- SAHA --- */
+        #game-stage {
+            flex: 1; display: flex; justify-content: center; align-items: center;
+            width: 100%; position: relative; perspective: 1000px;
+            padding: 20px;
+        }
+
+        .pitch {
+            display: grid;
+            grid-template-columns: repeat(5, 75px);
+            grid-template-rows: repeat(7, 65px);
+            background-color: var(--grass-light);
+            background-image: repeating-linear-gradient(
+                0deg, transparent, transparent 65px, rgba(0,0,0,0.1) 65px, rgba(0,0,0,0.1) 130px
+            );
+            border: 15px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 0 50px rgba(0,0,0,0.2);
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(20deg);
+        }
+
+        .pitch::after {
+            content: ''; position: absolute; inset: 5px;
+            border: 2px solid var(--line-white); pointer-events: none;
+        }
+
+        .cell {
+            position: relative; display: flex; justify-content: center; align-items: center;
+            cursor: pointer; box-shadow: inset 0 0 0 0.5px rgba(255,255,255,0.1); 
+        }
+
+        .cell[data-r="0"] { 
+            background-image: linear-gradient(var(--net-pattern) 1px, transparent 1px), linear-gradient(90deg, var(--net-pattern) 1px, transparent 1px);
+            background-size: 8px 8px; background-color: rgba(0,0,0,0.2);
+            box-shadow: inset 0 -3px 0 var(--line-white);
+        }
+        .cell[data-r="3"] { border-bottom: 2px solid rgba(255,255,255,0.6); }
+
+        /* --- OYUNCULAR --- */
+        .token {
+            width: 48px; height: 48px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-weight: 800; font-size: 18px; color: white;
+            position: relative; z-index: 5;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background-size: 100% 100%;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.4);
+            border: 2px solid #fff;
+        }
+        .atk { background: repeating-linear-gradient(45deg, var(--kit-atk-primary), var(--kit-atk-primary) 10px, var(--kit-atk-secondary) 10px, var(--kit-atk-secondary) 20px); }
+        .def { background: radial-gradient(circle at 30% 30%, var(--kit-def-primary), var(--kit-def-secondary)); }
+
+        /* --- TOP --- */
+        .ball {
+            position: absolute; width: 20px; height: 20px;
+            border-radius: 50%; top: -8px; right: -8px; z-index: 15;
+            background-color: #fff;
+            background-image: radial-gradient(circle at 40% 40%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%),
+                conic-gradient(#fff 0deg, #fff 45deg, #222 45deg, #222 90deg, #fff 90deg, #fff 135deg, #222 135deg, #222 180deg, #fff 180deg);
+            background-size: 100% 100%, 12px 12px;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.5); border: 1px solid #ccc;
+            animation: floatBall 2s infinite ease-in-out;
+        }
+        @keyframes floatBall { 0%, 100% {transform: translateY(0);} 50% {transform: translateY(-2px);} }
+
+        .selected { transform: scale(1.2) translateY(-5px); box-shadow: 0 15px 25px rgba(0,0,0,0.6); border-color: var(--gold); z-index: 20; }
+
+        /* --- İŞARETÇİLER --- */
+        .marker {
+            position: absolute; width: 100%; height: 100%; pointer-events: none;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .m-move::after {
+            content: ''; width: 20px; height: 20px; background: rgba(251, 191, 36, 0.4);
+            border: 2px solid rgba(251, 191, 36, 0.8); border-radius: 50%; animation: pulseRing 1.5s infinite;
+        }
+        .m-pass::after {
+            content: ''; width: 50px; height: 50px; border: 2px dashed rgba(74, 222, 128, 0.8);
+            border-radius: 50%; animation: spinSlow 4s infinite linear;
+        }
+        .m-block {
+            background: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.2) 10px, transparent 10px, transparent 20px);
+            border: 2px solid rgba(239, 68, 68, 0.6);
+        }
+        @keyframes pulseRing { 0% {transform: scale(0.8); opacity: 1;} 100% {transform: scale(1.5); opacity: 0;} }
+        @keyframes spinSlow { 100% {transform: rotate(360deg);} }
+
+        /* --- UI --- */
+        .overlay-screen {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(10px); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 100;
+            transition: opacity 0.3s ease;
+        }
+        .overlay-screen.hidden { opacity: 0; pointer-events: none; }
+
+        .card {
+            background: var(--ui-bg); padding: 40px; border-radius: 16px;
+            border: 1px solid var(--ui-border); text-align: center; 
+            max-width: 90%; width: 500px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        
+        .btn {
+            background: linear-gradient(to bottom, #2563eb, #1d4ed8);
+            border: none; border-bottom: 4px solid #1e40af;
+            padding: 16px 32px; color: white;
+            font-family: 'Rajdhani', sans-serif; font-size: 1.25rem; font-weight: 700;
+            border-radius: 8px; cursor: pointer; margin-top: 25px;
+            text-transform: uppercase; letter-spacing: 1px; width: 100%;
+            transition: all 0.1s;
+        }
+        .btn:active { transform: translateY(2px); border-bottom-width: 2px; }
+        .btn-secondary { background: #475569; border-color: #334155; margin-top: 10px; }
+        .btn-danger { background: linear-gradient(to bottom, #dc2626, #b91c1c); border-color: #991b1b; }
+        
+        /* Takım Seçim Butonları */
+        .btn-atk { background: linear-gradient(to bottom, #d32f2f, #b71c1c); border-color: #7f1d1d; }
+        .btn-def { background: linear-gradient(to bottom, #1976d2, #0d47a1); border-color: #1e3a8a; }
+
+        .input-box {
+            width: 100%; padding: 15px; margin: 10px 0;
+            background: #0f172a; border: 1px solid #334155; color: white;
+            font-family: 'Rajdhani', sans-serif; font-size: 1.2rem; text-align: center;
+            border-radius: 8px;
+        }
+
+        .scenario-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .scenario-opt {
+            background: #334155; border: 2px solid transparent;
+            padding: 15px; border-radius: 8px; cursor: pointer;
+            transition: all 0.2s; text-align: left;
+        }
+        .scenario-opt:hover { background: #475569; }
+        .scenario-opt.active { 
+            border-color: var(--gold); background: #1e293b;
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.2);
+        }
+        .scenario-title { font-weight: 800; color: #fff; font-size: 1.1em; }
+        .scenario-sub { font-size: 0.9em; color: #94a3b8; margin-top: 4px; }
+
+        .lobby-code {
+            font-size: 2em; color: var(--gold); letter-spacing: 3px; font-weight: bold;
+            background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;
+            user-select: text; cursor: pointer;
+        }
+        .waiting-spinner {
+            width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: var(--gold); border-radius: 50%;
+            animation: spin 1s infinite linear; margin: 20px auto;
+        }
+        @keyframes spin { to {transform: rotate(360deg);} }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>CHAMPIONS ONLINE</h1>
+        <div class="status-bar" id="status-text">BAĞLANTI BEKLENİYOR</div>
+        <div class="player-badge" id="role-badge">SEYİRCİ</div>
+    </header>
+
+    <div id="game-stage">
+        <div class="pitch" id="pitch">
+            </div>
+    </div>
+
+    <div id="lobby-screen" class="overlay-screen">
+        <div class="card">
+            <h2 style="color:var(--gold);">ONLINE LOBİ</h2>
+            <p style="color:#94a3b8;">Bir yöntem seç:</p>
+            
+            <div id="lobby-menu">
+                <button class="btn" onclick="showTeamSelect()">OYUN KUR (HOST)</button>
+                <button class="btn btn-secondary" onclick="showJoinMenu()">OYUNA KATIL (GUEST)</button>
+            </div>
+
+            <div id="team-select-panel" class="hidden">
+                <h3 style="margin-bottom:5px;">HANGİ TAKIM OLACAKSIN?</h3>
+                <p style="font-size:0.9em; color:#aaa;">Rakibin otomatik olarak diğer takım olacak.</p>
+                <button class="btn btn-atk" onclick="selectHostRole('atk')">HÜCUM (KIRMIZI)</button>
+                <button class="btn btn-def" onclick="selectHostRole('def')">SAVUNMA (MAVİ)</button>
+                <button class="btn btn-secondary" onclick="resetLobby()">İPTAL</button>
+            </div>
+
+            <div id="host-panel" class="hidden">
+                <p>Senin ID Kodun:</p>
+                <div class="lobby-code" id="my-id-display" onclick="copyId()">YÜKLENİYOR...</div>
+                <p style="font-size:0.9em; color:#64748b;">Kodu arkadaşına at, girmesini bekle.</p>
+                <div class="waiting-spinner"></div>
+                <button class="btn btn-secondary" onclick="resetLobby()">GERİ</button>
+            </div>
+
+            <div id="join-panel" class="hidden">
+                <p>Arkadaşının ID Kodunu Gir:</p>
+                <input type="text" id="friend-id-input" class="input-box" placeholder="Kodu buraya yapıştır">
+                <button class="btn" onclick="joinGame()">BAĞLAN</button>
+                <button class="btn btn-secondary" onclick="resetLobby()">GERİ</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scenario-screen" class="overlay-screen hidden">
+        <div class="card">
+            <h2 style="color:var(--gold);">DİZİLİŞ SEÇ</h2>
+            <p style="color:#94a3b8;">Hücum takımının dizilişini belirle:</p>
+            <div class="scenario-grid">
+                <div class="scenario-opt active" onclick="selectScenario(0, this)"><div class="scenario-title">KLASİK</div><div class="scenario-sub">Dengeli 3v3</div></div>
+                <div class="scenario-opt" onclick="selectScenario(1, this)"><div class="scenario-title">KANAT AKINI</div><div class="scenario-sub">Geniş Alan</div></div>
+                <div class="scenario-opt" onclick="selectScenario(2, this)"><div class="scenario-title">KONTRA ATAK</div><div class="scenario-sub">Hızlı Geçiş</div></div>
+                <div class="scenario-opt" onclick="selectScenario(3, this)"><div class="scenario-title">SON DAKİKA</div><div class="scenario-sub">Tam Saha Baskı</div></div>
+            </div>
+            <button class="btn" onclick="hostStartGame()">MAÇI BAŞLAT</button>
+        </div>
+    </div>
+
+    <div id="wait-screen" class="overlay-screen hidden">
+        <div class="card">
+            <h2 style="color:var(--gold);">RAKİP BEKLENİYOR</h2>
+            <div class="waiting-spinner"></div>
+            <p id="wait-msg" style="color:#cbd5e1;">...</p>
+        </div>
+    </div>
+
+    <div id="result-screen" class="overlay-screen hidden">
+        <div class="card">
+            <h2 id="result-title" style="font-size:2.5rem; margin:0; color:white;">SONUÇ</h2>
+            <div style="height: 4px; width: 60px; background: var(--gold); margin: 20px auto;"></div>
+            <p id="result-desc" style="color:#cbd5e1; font-size: 1.2em;"></p>
+            <button class="btn" id="result-btn" onclick="closeResult()">TAMAM</button>
+        </div>
+    </div>
+
+<script>
+    // --- NETWORKING (PeerJS) ---
+    let peer = null;
+    let conn = null;
+    let myPeerId = null;
+    let isHost = false;
+    let myRole = null; // 'atk' or 'def'
+
+    function initPeer() {
+        peer = new Peer(null, { debug: 2 });
+        
+        peer.on('open', (id) => {
+            myPeerId = id;
+            document.getElementById('my-id-display').innerText = id;
+        });
+
+        peer.on('connection', (c) => {
+            if(!isHost) return;
+            conn = c;
+            setupHostConnection();
+        });
+
+        peer.on('error', (err) => alert("Bağlantı hatası: " + err));
+    }
+
+    // 1. ADIM: HOST TAKIM SEÇİMİ
+    function showTeamSelect() {
+        document.getElementById('lobby-menu').classList.add('hidden');
+        document.getElementById('team-select-panel').classList.remove('hidden');
+    }
+
+    // 2. ADIM: HOST ROLÜ BELİRLER VE ID ÜRETİR
+    function selectHostRole(role) {
+        myRole = role;
+        isHost = true;
+        document.getElementById('team-select-panel').classList.add('hidden');
+        document.getElementById('host-panel').classList.remove('hidden');
+        initPeer();
+    }
+
+    // GUEST GİRİŞİ
+    function showJoinMenu() {
+        isHost = false;
+        myRole = null; // Henüz bilmiyoruz, Host söyleyecek
+        document.getElementById('lobby-menu').classList.add('hidden');
+        document.getElementById('join-panel').classList.remove('hidden');
+        initPeer();
+    }
+
+    function joinGame() {
+        const friendId = document.getElementById('friend-id-input').value.trim();
+        if(!friendId) return alert("Lütfen bir ID girin");
+        conn = peer.connect(friendId);
+        setupGuestConnection();
+    }
+
+    // --- BAĞLANTI KURULUMU (HANDSHAKE) ---
+
+    function setupHostConnection() {
+        conn.on('open', () => {
+            console.log("Guest bağlandı. Rol atanıyor...");
+            // Host, Guest'e rolünü bildirir (Benim rolümün tersi)
+            const guestRole = (myRole === 'atk') ? 'def' : 'atk';
+            conn.send({ type: 'ASSIGN_ROLE', role: guestRole });
+
+            // Host senaryo ekranına geçer
+            document.getElementById('lobby-screen').classList.add('hidden');
+            document.getElementById('scenario-screen').classList.remove('hidden');
+            updateRoleUI();
+        });
+        conn.on('data', (data) => handleNetworkData(data));
+    }
+
+    function setupGuestConnection() {
+        conn.on('open', () => {
+            console.log("Host'a bağlanıldı. Rol bekleniyor...");
+        });
+        conn.on('data', (data) => {
+            if(data.type === 'ASSIGN_ROLE') {
+                myRole = data.role;
+                console.log("Rol atandı: " + myRole);
+                updateRoleUI();
+                
+                document.getElementById('lobby-screen').classList.add('hidden');
+                showWaitScreen("Ev sahibi maçı kuruyor...");
+            } else {
+                handleNetworkData(data);
+            }
+        });
+    }
+
+    function updateRoleUI() {
+        const badge = document.getElementById('role-badge');
+        if(myRole === 'atk') {
+            badge.innerText = "ROL: HÜCUM (KIRMIZI)";
+            badge.style.color = "#ff8a8a";
+        } else {
+            badge.innerText = "ROL: SAVUNMA (MAVİ)";
+            badge.style.color = "#8ab4ff";
+        }
+    }
+
+    function sendData(data) {
+        if(conn && conn.open) conn.send(data);
+    }
+
+    function handleNetworkData(data) {
+        switch(data.type) {
+            case 'START_GAME':
+                initGameFromState(data.state);
+                document.getElementById('wait-screen').classList.add('hidden');
+                updateTurnUI(); // Duruma göre UI güncelle
+                render();
+                break;
+            
+            case 'OPPONENT_MOVED':
+                gameState = data.state;
+                document.getElementById('wait-screen').classList.add('hidden');
+                updateTurnUI(); // Duruma göre UI güncelle
+                render();
+                break;
+
+            case 'SHOW_RESULT':
+                gameState = data.state;
+                showResultScreen(data.title, data.desc, data.isGameOver);
+                render();
+                break;
+
+            case 'NEW_TURN':
+                 gameState = data.state;
+                 document.getElementById('result-screen').classList.add('hidden');
+                 updateTurnUI();
+                 render();
+                 break;
+        }
+    }
+
+    // Sıra kimde kontrolü ve UI güncellemesi
+    function updateTurnUI() {
+        // Eğer Faz: ATTACK_PLAN ise
+        if (gameState.phase === 'ATTACK_PLAN') {
+            if (myRole === 'atk') {
+                updateStatus("HÜCUM ZAMANI", "Sıra sende! Hamleni yap.", "#fbbf24");
+            } else {
+                updateStatus("SAVUNMA PLANI", "Rakip hücum planını yapıyor...", "#60a5fa");
+                showWaitScreen("Rakip hamlesini düşünüyor..."); // Savunmacı bekler
+            }
+        }
+        // Eğer Faz: DEFENSE_PLAN ise (Aslında WAIT_DEF olarak geliyor state'te)
+        else if (gameState.phase === 'DEFENSE_PLAN' || gameState.phase === 'WAIT_DEF') {
+             // Burada bir state düzeltmesi yapıyoruz client tarafında
+             if(gameState.phase === 'WAIT_DEF') gameState.phase = 'DEFENSE_PLAN';
+             
+             if (myRole === 'def') {
+                 document.getElementById('wait-screen').classList.add('hidden');
+                 updateStatus("SAVUNMA ZAMANI", "Sıra sende! Oyuncu seç ve blokla.", "#60a5fa");
+             } else {
+                 updateStatus("HÜCUM YAPILDI", "Rakip savunma yapıyor...", "#fbbf24");
+                 showWaitScreen("Rakip savunma hamlesi yapıyor..."); // Hücumcu bekler
+             }
+        }
+    }
+
+    function resetLobby() {
+        location.reload();
+    }
+    
+    function copyId() {
+        const text = document.getElementById('my-id-display').innerText;
+        navigator.clipboard.writeText(text);
+        alert("ID Kopyalandı!");
+    }
+
+    // --- OYUN LOJİĞİ (KORUNDU) ---
+    const ROWS = 7;
+    const COLS = 5;
+    let currentScenarioIndex = 0;
+
+    const SCENARIOS = [
+        { atk: [{r:6,c:2,l:'10'}, {r:5,c:1,l:'8'}, {r:5,c:3,l:'7'}, {r:4,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:1,l:'4'}, {r:2,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+        { atk: [{r:6,c:2,l:'6'}, {r:4,c:0,l:'11'}, {r:4,c:4,l:'7'}, {r:5,c:2,l:'10'}], def: [{r:0,c:2,l:'GK'}, {r:2,c:0,l:'2'}, {r:2,c:4,l:'3'}, {r:2,c:2,l:'4'}] },
+        { atk: [{r:6,c:1,l:'4'}, {r:6,c:3,l:'5'}, {r:5,c:2,l:'8'}, {r:2,c:2,l:'9'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'4'}, {r:1,c:3,l:'5'}, {r:3,c:2,l:'6'}] },
+        { atk: [{r:4,c:2,l:'9'}, {r:5,c:1,l:'11'}, {r:5,c:3,l:'7'}, {r:6,c:2,l:'GK'}], def: [{r:0,c:2,l:'GK'}, {r:1,c:1,l:'2'}, {r:1,c:2,l:'4'}, {r:1,c:3,l:'5'}] }
+    ];
+
+    let gameState = {
+        phase: 'INIT',
+        players: [],
+        ballOwnerId: null,
+        selectedUnit: null,
+        moves: { atk: null, def: null }
+    };
+
+    const pitch = document.getElementById('pitch');
+    const statusText = document.getElementById('status-text');
+
+    function selectScenario(index, el) {
+        currentScenarioIndex = index;
+        document.querySelectorAll('.scenario-opt').forEach(d => d.classList.remove('active'));
+        el.classList.add('active');
+    }
+
+    function hostStartGame() {
+        const scen = SCENARIOS[currentScenarioIndex];
+        gameState.players = [];
+        scen.atk.forEach((p, i) => gameState.players.push({ id: `a${i}`, team: 'atk', r: p.r, c: p.c, label: p.l }));
+        scen.def.forEach((p, i) => gameState.players.push({ id: `d${i}`, team: 'def', r: p.r, c: p.c, label: p.l }));
+        gameState.ballOwnerId = gameState.players[0].id;
+        gameState.phase = 'ATTACK_PLAN';
+        
+        document.getElementById('scenario-screen').classList.add('hidden');
+        
+        sendData({ type: 'START_GAME', state: gameState });
+        updateTurnUI();
+        render();
+    }
+
+    function initGameFromState(state) {
+        gameState = state;
+        // Guest için UI ayarlaması updateTurnUI içinde yapılıyor
+    }
+
+    function updateStatus(title, desc, color) {
+        statusText.innerHTML = `<span style="color:${color}">${title}:</span> ${desc}`;
+        statusText.style.borderColor = color;
+    }
+
+    function showWaitScreen(msg) {
+        document.getElementById('wait-msg').innerText = msg;
+        document.getElementById('wait-screen').classList.remove('hidden');
+    }
+
+    function showResultScreen(title, desc, isGameOver) {
+        document.getElementById('result-title').innerText = title;
+        document.getElementById('result-desc').innerHTML = desc;
+        
+        const btn = document.getElementById('result-btn');
+        if(isGameOver) {
+            btn.innerText = "YENİ OYUN KUR";
+            btn.className = "btn btn-danger";
+            btn.onclick = () => location.reload();
+        } else {
+            btn.innerText = "SONRAKİ TUR";
+            btn.className = "btn";
+            btn.onclick = closeResult;
+        }
+        
+        document.getElementById('wait-screen').classList.add('hidden');
+        document.getElementById('result-screen').classList.remove('hidden');
+    }
+
+    function closeResult() {
+        if(!isHost) {
+            showWaitScreen("Ev sahibi yeni turu başlatıyor...");
+            document.getElementById('result-screen').classList.add('hidden');
+            return;
+        }
+        gameState.phase = 'ATTACK_PLAN';
+        gameState.selectedUnit = null;
+        gameState.moves = { atk: null, def: null };
+        document.getElementById('result-screen').classList.add('hidden');
+        sendData({ type: 'NEW_TURN', state: gameState });
+        updateTurnUI();
+        render();
+    }
+
+    // --- RENDER ---
+    function render() {
+        pitch.innerHTML = '';
+        for(let r=0; r<ROWS; r++) {
+            for(let c=0; c<COLS; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.r = r;
+                cell.dataset.c = c;
+
+                const p = gameState.players.find(pl => pl.r === r && pl.c === c);
+                if (p) {
+                    const token = document.createElement('div');
+                    token.className = `token ${p.team}`;
+                    token.innerText = p.label;
+                    if(p.id === gameState.ballOwnerId) {
+                        token.innerHTML += `<div class="ball"></div>`;
+                        token.style.borderColor = "#fbbf24";
+                        token.style.zIndex = "10";
+                    }
+                    if(gameState.selectedUnit === p.id) token.classList.add('selected');
+                    cell.appendChild(token);
+                }
+
+                // GÖRSEL İPUÇLARI (SADECE KENDİ SIRAMDA)
+                if(myRole === 'atk' && gameState.phase === 'ATTACK_PLAN' && gameState.selectedUnit === gameState.ballOwnerId) {
+                    const owner = gameState.players.find(x => x.id === gameState.ballOwnerId);
+                    if (p && p.team === 'atk' && p.id !== owner.id) addMarker(cell, 'm-pass');
+                    if (!p && Math.abs(owner.r - r) <= 1 && Math.abs(owner.c - c) <= 1) addMarker(cell, 'm-move');
+                }
+
+                if(myRole === 'def' && gameState.phase === 'DEFENSE_PLAN' && gameState.selectedUnit) {
+                    const def = gameState.players.find(x => x.id === gameState.selectedUnit);
+                    if(def && def.team === 'def' && Math.abs(def.r - r) <= 1 && Math.abs(def.c - c) <= 1) {
+                        addMarker(cell, 'm-block');
+                    }
+                }
+
+                cell.onclick = () => handleInput(r, c, p);
+                pitch.appendChild(cell);
+            }
+        }
+    }
+
+    function addMarker(cell, type) {
+        const marker = document.createElement('div');
+        marker.className = `marker ${type}`;
+        cell.appendChild(marker);
+    }
+
+    // --- INPUT ---
+    function handleInput(r, c, targetPlayer) {
+        // SIRA KONTROLÜ
+        if(myRole === 'atk' && gameState.phase !== 'ATTACK_PLAN') return;
+        if(myRole === 'def' && gameState.phase !== 'DEFENSE_PLAN') return;
+
+        if (gameState.phase === 'ATTACK_PLAN' && myRole === 'atk') {
+            if (targetPlayer && targetPlayer.id === gameState.ballOwnerId) {
+                gameState.selectedUnit = targetPlayer.id;
+                render();
+                return;
+            }
+            if (gameState.selectedUnit === gameState.ballOwnerId) {
+                const owner = gameState.players.find(pl => pl.id === gameState.ballOwnerId);
+                if (targetPlayer && targetPlayer.team === 'atk' && targetPlayer.id !== owner.id) {
+                    gameState.moves.atk = { type: 'PASS', r: r, c: c, targetId: targetPlayer.id, actorId: owner.id };
+                    commitMove();
+                } else if (!targetPlayer && Math.abs(owner.r - r) <= 1 && Math.abs(owner.c - c) <= 1) {
+                    gameState.moves.atk = { type: 'MOVE', r: r, c: c, actorId: owner.id };
+                    commitMove();
+                }
+            }
+        } 
+        else if (gameState.phase === 'DEFENSE_PLAN' && myRole === 'def') {
+            if (targetPlayer && targetPlayer.team === 'def') {
+                gameState.selectedUnit = targetPlayer.id;
+                render();
+                return;
+            }
+            if (gameState.selectedUnit) {
+                const def = gameState.players.find(pl => pl.id === gameState.selectedUnit);
+                if (Math.abs(def.r - r) <= 1 && Math.abs(def.c - c) <= 1) {
+                    gameState.moves.def = { r: r, c: c, actorId: def.id };
+                    commitMove();
+                }
+            }
+        }
+    }
+
+    function commitMove() {
+        if(myRole === 'atk') {
+            gameState.phase = 'WAIT_DEF'; 
+            updateTurnUI(); // Bekleme ekranına geçir
+            sendData({ type: 'OPPONENT_MOVED', state: gameState });
+        } else {
+            gameState.phase = 'RESOLVE';
+            updateTurnUI(); // Bekleme ekranına geçir
+            sendData({ type: 'OPPONENT_MOVED', state: gameState }); 
+        }
+    }
+
+    // Host tarafında veri işleme override'ı
+    const originalHandle = handleNetworkData;
+    handleNetworkData = function(data) {
+        if(data.type === 'OPPONENT_MOVED') {
+            gameState = data.state;
+            // Eğer Atak yapıldıysa -> Sıra Defansa geçer
+            if(gameState.phase === 'WAIT_DEF') {
+                 // State'i düzeltip devam et
+                 gameState.phase = 'DEFENSE_PLAN';
+                 updateTurnUI();
+                 render();
+            }
+            // Eğer Defans yapıldıysa -> Host sonucu çözer
+            else if (gameState.phase === 'RESOLVE') {
+                if(isHost) resolveTurn();
+            }
+        } else {
+            originalHandle(data);
+        }
+    }
+
+    // --- RESOLVE (OFF-BALL SWAP DAHİL) ---
+    function resolveTurn() {
+        const atkMove = gameState.moves.atk;
+        const defMove = gameState.moves.def;
+        const activeDef = gameState.players.find(p => p.id === defMove.actorId);
+        const defStartR = activeDef.r;
+        const defStartC = activeDef.c;
+
+        activeDef.r = defMove.r;
+        activeDef.c = defMove.c;
+
+        const staticAtk = gameState.players.find(p => p.team === 'atk' && p.r === defMove.r && p.c === defMove.c && p.id !== gameState.ballOwnerId);
+        let swapMsg = "";
+        if (staticAtk) {
+            staticAtk.r = defStartR;
+            staticAtk.c = defStartC;
+            swapMsg = "<br>(Topsuz alanda yer değişimi!)";
+        }
+
+        const isIntercepted = (atkMove.r === defMove.r && atkMove.c === defMove.c);
+        let title = "", desc = "", isGameOver = false;
+
+        if (isIntercepted) {
+            title = "TOP KAYBI!";
+            desc = "Savunma blokladı." + swapMsg;
+            isGameOver = true; 
+        } else {
+            if (atkMove.type === 'PASS') {
+                gameState.ballOwnerId = atkMove.targetId;
+                title = "PAS BAŞARILI";
+                desc = "Atak devam ediyor." + swapMsg;
+            } else {
+                const atkPlayer = gameState.players.find(p => p.id === atkMove.actorId);
+                atkPlayer.r = atkMove.r;
+                atkPlayer.c = atkMove.c;
+                title = "ÇALIM BAŞARILI";
+                desc = "Boş alana koşuldu." + swapMsg;
+            }
+
+            if (atkMove.r === 0) {
+                title = "GOOOOOOOOL!";
+                desc = "Top ağlarda!";
+                isGameOver = true;
+            }
+        }
+
+        const resultData = { type: 'SHOW_RESULT', state: gameState, title: title, desc: desc, isGameOver: isGameOver };
+        sendData(resultData);
+        showResultScreen(title, desc, isGameOver);
+        render();
+    }
+
+</script>
+</body>
+</html>
