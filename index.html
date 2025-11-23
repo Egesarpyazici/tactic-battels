@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL MASTER: PAS USTASI</title>
+    <title>TACTICAL MASTER: SERBEST SEÇİM</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <style>
-        /* --- GÖRSEL TASARIM (AYNI) --- */
+        /* --- GÖRSEL TASARIM (HİÇBİR ŞEY DEĞİŞMEDİ) --- */
         :root { --grass-light: #4b8b3b; --grass-dark: #3a702e; --line-white: rgba(255,255,255,0.85); --net-pattern: rgba(255,255,255,0.15); --kit-atk-primary: #d32f2f; --kit-atk-secondary: #b71c1c; --kit-def-primary: #1976d2; --kit-def-secondary: #0d47a1; --ui-bg: #1e293b; --ui-border: #334155; --gold: #fbbf24; }
         * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; min-height: 100vh; background: #111 radial-gradient(circle at 50% 30%, #2c3e50 0%, #000000 90%) fixed; color: #fff; font-family: 'Rajdhani', sans-serif; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
@@ -356,39 +356,41 @@
                     
                     const rDiff = Math.abs(actor.r - r);
                     const cDiff = Math.abs(actor.c - c);
-                    const dist = Math.max(rDiff, cDiff); // ÇAPRAZ DAHİL MESAFE
+                    const dist = Math.max(rDiff, cDiff);
 
-                    // --- PAS MANTIĞI (EN YÜKSEK ÖNCELİK) ---
-                    // Eğer seçili adamda TOP VARSA ve tıklanan yer TAKIM ARKADAŞIYSA
-                    if (isBallOwner && p && p.team === 'atk' && p.id !== actor.id) {
-                        if (dist <= 2) {
-                            // PASI ÇAK!
-                            gameState.moves.atk = {type:'PASS', r:r, c:c, targetId:p.id, actorId:actor.id}; 
-                            commitMove();
-                            return; // İŞLEM TAMAM, ÇIK.
-                        } else {
-                            alert("Çok uzak! En fazla 2 blok.");
-                            return; 
-                        }
+                    // --- A) PAS MANTIĞI (ÖNCELİKLİ) ---
+                    // Eğer top bende, tıkladığım yer arkadaşım ve menzildeyse PAS AT.
+                    if (isBallOwner && p && p.team === 'atk' && p.id !== actor.id && dist <= 2) {
+                        gameState.moves.atk = {type:'PASS', r:r, c:c, targetId:p.id, actorId:actor.id}; 
+                        commitMove();
+                        return;
                     }
 
-                    // --- HAREKET MANTIĞI ---
-                    // Boş alana tıklandıysa ve 1 birim mesafedeyse
+                    // --- B) SEÇİM DEĞİŞTİRME (YENİ ÖZELLİK) ---
+                    // Pas değilse, ama tıkladığım yer BAŞKA bir takım arkadaşımsa, ONA GEÇ.
+                    if (p && p.team === 'atk' && p.id !== actor.id) {
+                        gameState.selectedUnit = p.id;
+                        render();
+                        return;
+                    }
+
+                    // --- C) HAREKET MANTIĞI ---
+                    // Boş alana tıklandıysa ve 1 birim mesafedeyse GİT.
                     if (!p && dist <= 1) {
                         gameState.moves.atk = {type:'MOVE', r:r, c:c, actorId:actor.id}; 
                         commitMove(); 
-                        return; // İŞLEM TAMAM, ÇIK.
+                        return;
                     }
                 }
 
-                // 2. ADIM: EĞER YUKARIDAKİLER OLMADIYSA, YENİ OYUNCU SEÇ
+                // 2. ADIM: HİÇ SEÇİLİ YOKSA, YENİ OYUNCU SEÇ
                 if(p && p.team === 'atk') { 
                     gameState.selectedUnit = p.id; 
                     render(); 
                 }
 
             } else {
-                // SAVUNMA MANTIĞI (AYNI)
+                // SAVUNMA MANTIĞI (Savunmada zaten seçim değiştirmek serbestti, o yüzden aynen kalıyor)
                 if(p && p.team==='def') { gameState.selectedUnit=p.id; render(); return; }
                 if(gameState.selectedUnit) {
                     const df = gameState.players.find(x=>x.id===gameState.selectedUnit);
@@ -444,3 +446,4 @@
     </script>
 </body>
 </html>
+
