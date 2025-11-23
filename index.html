@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL MASTER: PAS DÜZELTİLDİ</title>
+    <title>TACTICAL MASTER: PAS USTASI</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -58,7 +58,7 @@
         @keyframes spin { to {transform: rotate(360deg);} }
         #sys-log { position: fixed; bottom: 5px; left: 5px; color: #0f0; font-family: monospace; font-size: 10px; background: rgba(0,0,0,0.8); padding: 5px; max-width: 300px; pointer-events: none; z-index: 9999; }
 
-        /* --- BEKLEME EKRANI (SENİN İSTEDİĞİN GİBİ) --- */
+        /* --- BEKLEME EKRANI --- */
         #wait-screen.overlay { inset: auto; bottom: 0; left: 0; right: 0; height: auto; background: transparent; justify-content: flex-end; pointer-events: none; }
         #wait-screen .card { width: 100%; max-width: 100%; border-radius: 20px 20px 0 0; background: rgba(30, 41, 59, 0.95); border-bottom: none; padding: 20px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 20px; backdrop-filter: blur(10px); border-top: 2px solid var(--gold); animation: slideUp 0.5s ease-out; }
         #wait-screen h2 { margin: 0; font-size: 1.2rem; }
@@ -317,14 +317,15 @@
                     if(myRole==='atk' && gameState.phase==='ATTACK_PLAN' && gameState.selectedUnit) {
                         const activeUnit = gameState.players.find(x=>x.id === gameState.selectedUnit);
                         if(activeUnit) {
-                            const dist = Math.max(Math.abs(activeUnit.r-r), Math.abs(activeUnit.c-c));
+                            const rDiff = Math.abs(activeUnit.r - r);
+                            const cDiff = Math.abs(activeUnit.c - c);
+                            const dist = Math.max(rDiff, cDiff); // ÇAPRAZ DAHİL MESAFE
                             const hasBall = (activeUnit.id === gameState.ballOwnerId);
 
                             // Hareket (Herkes yapabilir - 1 kare)
                             if(!p && dist <= 1) addMark(d,'m-move');
                             
-                            // Pas (Sadece topu olan yapabilir - MAX 2 KARE)
-                            // Burada önemli olan görsel: Seçili adamda top varsa ve p takımdansa
+                            // Pas (Sadece topu olan yapabilir - MAX 2 KARE, ÇAPRAZ DAHİL)
                             if(hasBall && p && p.team==='atk' && p.id!==activeUnit.id && dist <= 2) {
                                 addMark(d,'m-pass');
                             }
@@ -348,41 +349,46 @@
             if((myRole==='atk' && gameState.phase!=='ATTACK_PLAN') || (myRole==='def' && gameState.phase!=='DEFENSE_PLAN')) return;
             
             if(myRole==='atk') {
-                // ÖNCE MEVCUT SEÇİM VARSA VE PAS ATILACAKSA KONTROL ET
+                // 1. ADIM: ŞU AN SEÇİLİ BİR OYUNCUM VAR MI?
                 if(gameState.selectedUnit) {
                     const actor = gameState.players.find(x=>x.id === gameState.selectedUnit);
-                    const hasBall = (actor.id === gameState.ballOwnerId);
-                    const dist = Math.max(Math.abs(actor.r-r), Math.abs(actor.c-c));
-
-                    // PAS MEKANİĞİ (ÖNCELİKLİ): Eğer top bendeyse ve tıkladığım yer takım arkadaşımsa ve menzildeyse
-                    if(hasBall && p && p.team==='atk' && p.id!==actor.id) {
-                        if(dist <= 2) {
-                            gameState.moves.atk={type:'PASS', r:r, c:c, targetId:p.id, actorId:actor.id}; 
-                            commitMove();
-                            return; // PASI ATTIK, FONKSİYONU BİTİR (Böylece aşağıya inip oyuncu seçmez)
-                        } else {
-                            alert("Pas çok uzak! En fazla 2 kare.");
-                            return; // Pas atamadık ama oyuncu da seçmeyelim, uyarı verelim.
-                        }
-                    } 
+                    const isBallOwner = (actor.id === gameState.ballOwnerId);
                     
-                    // HAREKET MEKANİĞİ (Toplu veya Topsuz - 1 kare)
-                    else if(!p && dist <= 1) { 
-                        gameState.moves.atk={type:'MOVE', r:r, c:c, actorId:actor.id}; 
+                    const rDiff = Math.abs(actor.r - r);
+                    const cDiff = Math.abs(actor.c - c);
+                    const dist = Math.max(rDiff, cDiff); // ÇAPRAZ DAHİL MESAFE
+
+                    // --- PAS MANTIĞI (EN YÜKSEK ÖNCELİK) ---
+                    // Eğer seçili adamda TOP VARSA ve tıklanan yer TAKIM ARKADAŞIYSA
+                    if (isBallOwner && p && p.team === 'atk' && p.id !== actor.id) {
+                        if (dist <= 2) {
+                            // PASI ÇAK!
+                            gameState.moves.atk = {type:'PASS', r:r, c:c, targetId:p.id, actorId:actor.id}; 
+                            commitMove();
+                            return; // İŞLEM TAMAM, ÇIK.
+                        } else {
+                            alert("Çok uzak! En fazla 2 blok.");
+                            return; 
+                        }
+                    }
+
+                    // --- HAREKET MANTIĞI ---
+                    // Boş alana tıklandıysa ve 1 birim mesafedeyse
+                    if (!p && dist <= 1) {
+                        gameState.moves.atk = {type:'MOVE', r:r, c:c, actorId:actor.id}; 
                         commitMove(); 
-                        return;
+                        return; // İŞLEM TAMAM, ÇIK.
                     }
                 }
 
-                // EĞER PAS DEĞİLSE, O ZAMAN OYUNCU SEÇ (SELECTION)
+                // 2. ADIM: EĞER YUKARIDAKİLER OLMADIYSA, YENİ OYUNCU SEÇ
                 if(p && p.team === 'atk') { 
                     gameState.selectedUnit = p.id; 
                     render(); 
-                    return; 
                 }
 
             } else {
-                // Savunma Mantığı
+                // SAVUNMA MANTIĞI (AYNI)
                 if(p && p.team==='def') { gameState.selectedUnit=p.id; render(); return; }
                 if(gameState.selectedUnit) {
                     const df = gameState.players.find(x=>x.id===gameState.selectedUnit);
