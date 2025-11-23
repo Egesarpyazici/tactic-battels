@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TACTICAL MASTER: PRO EDITION</title>
+    <title>TACTICAL MASTER: PAS DÜZELTİLDİ</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700;800&display=swap" rel="stylesheet">
 
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <style>
-        /* --- GÖRSEL TASARIM --- */
+        /* --- GÖRSEL TASARIM (AYNI) --- */
         :root { --grass-light: #4b8b3b; --grass-dark: #3a702e; --line-white: rgba(255,255,255,0.85); --net-pattern: rgba(255,255,255,0.15); --kit-atk-primary: #d32f2f; --kit-atk-secondary: #b71c1c; --kit-def-primary: #1976d2; --kit-def-secondary: #0d47a1; --ui-bg: #1e293b; --ui-border: #334155; --gold: #fbbf24; }
         * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; min-height: 100vh; background: #111 radial-gradient(circle at 50% 30%, #2c3e50 0%, #000000 90%) fixed; color: #fff; font-family: 'Rajdhani', sans-serif; display: flex; flex-direction: column; align-items: center; overflow-y: auto; }
@@ -58,37 +58,12 @@
         @keyframes spin { to {transform: rotate(360deg);} }
         #sys-log { position: fixed; bottom: 5px; left: 5px; color: #0f0; font-family: monospace; font-size: 10px; background: rgba(0,0,0,0.8); padding: 5px; max-width: 300px; pointer-events: none; z-index: 9999; }
 
-        /* --- YENİ BEKLEME EKRANI CSS (AŞKIM BURASI DEĞİŞTİ) --- */
-        #wait-screen.overlay {
-            inset: auto;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: auto;
-            background: transparent;
-            justify-content: flex-end;
-            pointer-events: none; /* Arkaya tıklanabilsin (görsel olarak) */
-        }
-        #wait-screen .card {
-            width: 100%;
-            max-width: 100%;
-            border-radius: 20px 20px 0 0;
-            background: rgba(30, 41, 59, 0.95);
-            border-bottom: none;
-            padding: 20px;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-            backdrop-filter: blur(10px);
-            border-top: 2px solid var(--gold);
-            animation: slideUp 0.5s ease-out;
-        }
+        /* --- BEKLEME EKRANI (SENİN İSTEDİĞİN GİBİ) --- */
+        #wait-screen.overlay { inset: auto; bottom: 0; left: 0; right: 0; height: auto; background: transparent; justify-content: flex-end; pointer-events: none; }
+        #wait-screen .card { width: 100%; max-width: 100%; border-radius: 20px 20px 0 0; background: rgba(30, 41, 59, 0.95); border-bottom: none; padding: 20px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 20px; backdrop-filter: blur(10px); border-top: 2px solid var(--gold); animation: slideUp 0.5s ease-out; }
         #wait-screen h2 { margin: 0; font-size: 1.2rem; }
         #wait-screen .waiting-spinner { margin: 0; width: 25px; height: 25px; border-width: 2px; }
         @keyframes slideUp { from {transform: translateY(100%);} to {transform: translateY(0);} }
-
     </style>
 </head>
 <body>
@@ -154,7 +129,7 @@
     <div id="result-screen" class="overlay hidden"><div class="card"><h2 id="result-title">SONUÇ</h2><div style="height:4px; width:60px; background:var(--gold); margin:20px auto;"></div><p id="result-desc"></p><button class="btn" id="result-btn" onclick="closeResult()">TAMAM</button></div></div>
 
     <script>
-        // --- MQTT SİSTEMİ (AYNI) ---
+        // --- MQTT SİSTEMİ ---
         let client = null;
         let myRole = null;
         let currentRoom = null;
@@ -163,8 +138,6 @@
         const BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
 
         function log(m) { document.getElementById('sys-log').innerText = m; console.log(m); }
-
-        // --- LOBBY ---
         const el=(id)=>document.getElementById(id);
         const show=(id)=>el(id).classList.remove('hidden');
         const hide=(id)=>el(id).classList.add('hidden');
@@ -323,7 +296,7 @@
             hide('result-screen'); render(); updateUI();
         }
 
-        // --- RENDER ve MANTIK DEĞİŞİKLİKLERİ ---
+        // --- RENDER ve ETKİLEŞİM ---
         const pitch = el('pitch');
         
         function render() {
@@ -340,24 +313,24 @@
                         d.appendChild(t);
                     }
                     
-                    // --- HÜCUM GÖRSELLERİ (GÜNCELLENDİ) ---
+                    // --- GÖRSEL İPUÇLARI ---
                     if(myRole==='atk' && gameState.phase==='ATTACK_PLAN' && gameState.selectedUnit) {
                         const activeUnit = gameState.players.find(x=>x.id === gameState.selectedUnit);
                         if(activeUnit) {
                             const dist = Math.max(Math.abs(activeUnit.r-r), Math.abs(activeUnit.c-c));
                             const hasBall = (activeUnit.id === gameState.ballOwnerId);
 
-                            // 1. Hareket (Herkes yapabilir - 1 kare)
+                            // Hareket (Herkes yapabilir - 1 kare)
                             if(!p && dist <= 1) addMark(d,'m-move');
                             
-                            // 2. Pas (Sadece topu olan yapabilir - MAX 2 KARE - GÜNCELLENDİ)
+                            // Pas (Sadece topu olan yapabilir - MAX 2 KARE)
+                            // Burada önemli olan görsel: Seçili adamda top varsa ve p takımdansa
                             if(hasBall && p && p.team==='atk' && p.id!==activeUnit.id && dist <= 2) {
                                 addMark(d,'m-pass');
                             }
                         }
                     }
 
-                    // --- SAVUNMA GÖRSELLERİ (AYNI) ---
                     if(myRole==='def' && gameState.phase==='DEFENSE_PLAN' && gameState.selectedUnit) {
                         const df = gameState.players.find(x=>x.id===gameState.selectedUnit);
                         if(df && df.team==='def' && Math.abs(df.r-r)<=1 && Math.abs(df.c-c)<=1) addMark(d,'m-block');
@@ -375,33 +348,39 @@
             if((myRole==='atk' && gameState.phase!=='ATTACK_PLAN') || (myRole==='def' && gameState.phase!=='DEFENSE_PLAN')) return;
             
             if(myRole==='atk') {
-                // 1. Oyuncu Seçimi (Herhangi bir Atk oyuncusu seçilebilir - GÜNCELLENDİ)
+                // ÖNCE MEVCUT SEÇİM VARSA VE PAS ATILACAKSA KONTROL ET
+                if(gameState.selectedUnit) {
+                    const actor = gameState.players.find(x=>x.id === gameState.selectedUnit);
+                    const hasBall = (actor.id === gameState.ballOwnerId);
+                    const dist = Math.max(Math.abs(actor.r-r), Math.abs(actor.c-c));
+
+                    // PAS MEKANİĞİ (ÖNCELİKLİ): Eğer top bendeyse ve tıkladığım yer takım arkadaşımsa ve menzildeyse
+                    if(hasBall && p && p.team==='atk' && p.id!==actor.id) {
+                        if(dist <= 2) {
+                            gameState.moves.atk={type:'PASS', r:r, c:c, targetId:p.id, actorId:actor.id}; 
+                            commitMove();
+                            return; // PASI ATTIK, FONKSİYONU BİTİR (Böylece aşağıya inip oyuncu seçmez)
+                        } else {
+                            alert("Pas çok uzak! En fazla 2 kare.");
+                            return; // Pas atamadık ama oyuncu da seçmeyelim, uyarı verelim.
+                        }
+                    } 
+                    
+                    // HAREKET MEKANİĞİ (Toplu veya Topsuz - 1 kare)
+                    else if(!p && dist <= 1) { 
+                        gameState.moves.atk={type:'MOVE', r:r, c:c, actorId:actor.id}; 
+                        commitMove(); 
+                        return;
+                    }
+                }
+
+                // EĞER PAS DEĞİLSE, O ZAMAN OYUNCU SEÇ (SELECTION)
                 if(p && p.team === 'atk') { 
                     gameState.selectedUnit = p.id; 
                     render(); 
                     return; 
                 }
 
-                if(gameState.selectedUnit) {
-                    const actor = gameState.players.find(x=>x.id === gameState.selectedUnit);
-                    const hasBall = (actor.id === gameState.ballOwnerId);
-                    const dist = Math.max(Math.abs(actor.r-r), Math.abs(actor.c-c));
-
-                    // Pas Mantığı (Sadece Top Sahibiyse ve Menzil <= 2 ise)
-                    if(hasBall && p && p.team==='atk' && p.id!==actor.id) {
-                        if(dist <= 2) {
-                            gameState.moves.atk={type:'PASS', r:r, c:c, targetId:p.id, actorId:actor.id}; 
-                            commitMove();
-                        } else {
-                            alert("Pas çok uzak! En fazla 2 kare.");
-                        }
-                    } 
-                    // Hareket Mantığı (Toplu veya Topsuz - 1 kare)
-                    else if(!p && dist <= 1) { 
-                        gameState.moves.atk={type:'MOVE', r:r, c:c, actorId:actor.id}; 
-                        commitMove(); 
-                    }
-                }
             } else {
                 // Savunma Mantığı
                 if(p && p.team==='def') { gameState.selectedUnit=p.id; render(); return; }
@@ -423,54 +402,33 @@
             const am = gameState.moves.atk; const dm = gameState.moves.def;
             if(!am || !dm) return;
 
-            // Savunmacıyı hareket ettir
             const ad = gameState.players.find(x=>x.id===dm.actorId);
             const defStartR = ad.r; const defStartC = ad.c;
             ad.r = dm.r; ad.c = dm.c; 
 
-            // Hücumcu (Hareket eden veya Pas atan)
             const attacker = gameState.players.find(x=>x.id === am.actorId);
             const atkStartR = attacker.r; const atkStartC = attacker.c;
-
-            // Blok Kontrolü: Savunma, hücumcunun gittiği yere mi gitti?
             const blocked = (am.r===dm.r && am.c===dm.c);
             
-            let t="", d="";
-            let msg = "";
-
-            // Eğer toplu oyuncu değil de başka biri hareket ettiyse?
-            // Top sahibini kontrol et
+            let t="", d="", msg="";
             const ballOwner = gameState.players.find(x=>x.id === gameState.ballOwnerId);
             const attackerHasBall = (attacker.id === ballOwner.id);
 
             if(blocked) {
-                // Savunma doğru yeri tahmin etti
-                if(attackerHasBall) {
-                    t="TOP KAYBI!"; d="Savunma topu kaptı!";
-                    // Topu savunmaya verelim (basitçe kayıp)
-                } else {
-                    t="BLOKAJ!"; d="Topsuz koşu engellendi.";
-                    attacker.r = atkStartR; attacker.c = atkStartC; // Geri git
-                    // Oyun devam eder, top hala bizde
-                }
+                if(attackerHasBall) { t="TOP KAYBI!"; d="Savunma topu kaptı!"; }
+                else { t="BLOKAJ!"; d="Topsuz koşu engellendi."; attacker.r = atkStartR; attacker.c = atkStartC; }
             } else {
-                // Blok yok, hareket başarılı
                 if(am.type==='PASS') { 
                     gameState.ballOwnerId=am.targetId; t="PAS BAŞARILI"; d="Oyun kuruyorsun."; 
                 } else { 
-                    // Düz hareket (Toplu veya Topsuz)
                     attacker.r = am.r; attacker.c = am.c; 
-                    
                     if(attackerHasBall) {
                         if(am.r===0) { t="GOOOOOOOOL!"; d="Mükemmel bitiriş!"; }
                         else { t="ÇALIM / KOŞU"; d="Boş alana sızdın."; }
-                    } else {
-                        t="POZİSYON ALDI"; d="Topsuz alanda yer değiştirdin.";
-                    }
+                    } else { t="POZİSYON ALDI"; d="Topsuz alanda yer değiştirdin."; }
                 }
             }
             
-            // Savunma oyuncusu eski yerine çarptıysa? (Basitleştirilmiş fizik)
             const sAtk = gameState.players.find(x=>x.team==='atk' && x.r===dm.r && x.c===dm.c && x.id!==am.actorId);
             if(sAtk) { sAtk.r=defStartR; sAtk.c=defStartC; msg="<br>(Çarpışma!)"; d+=msg; }
 
