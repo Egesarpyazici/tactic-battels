@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -274,8 +273,8 @@
         function startGame() {
             const s = SCENARIOS[scenIdx];
             gameState.players = [];
-            // Role bilgisini de ekliyoruz
-            s.atk.forEach((p,i)=>gameState.players.push({id:`a${i}`, team:'atk', r:p.r, c:p.c, label:p.l, role:p.role}));
+            // Role bilgisi ve hasMoved (kanat için) ekliyoruz
+            s.atk.forEach((p,i)=>gameState.players.push({id:`a${i}`, team:'atk', r:p.r, c:p.c, label:p.l, role:p.role, hasMoved:false}));
             s.def.forEach((p,i)=>gameState.players.push({id:`d${i}`, team:'def', r:p.r, c:p.c, label:p.l, role:p.role}));
             
             // Topu 10 Numaraya ver (daha mantıklı başlangıç)
@@ -383,11 +382,21 @@
                             let moveRange = 1;
                             let passRange = 2; // Default
 
-                            if(activeUnit.role === 'LW' || activeUnit.role === 'RW') moveRange = 2; // Kanatlar Hızlı
+                            if(activeUnit.role === 'LW' || activeUnit.role === 'RW') {
+                                moveRange = 2; // Kanatlar Hızlı
+                                if(activeUnit.hasMoved) moveRange = 0; // KURAL: Zaten hareket ettiyse bir daha gidemez
+                            }
                             if(activeUnit.role === '10') passRange = 99; // 10 Numara Global Pas
 
                             // Hareket
-                            if(!p && dist <= moveRange) addMark(d,'m-move');
+                            if(!p && dist <= moveRange) {
+                                // Kanat için sadece kendi sütunu
+                                if((activeUnit.role === 'LW' || activeUnit.role === 'RW') && activeUnit.c !== c) {
+                                    // Çapraz gösterme
+                                } else {
+                                    addMark(d,'m-move');
+                                }
+                            }
                             
                             // Pas
                             if(hasBall && p && p.team==='atk' && p.id!==activeUnit.id && dist <= passRange) {
@@ -434,6 +443,12 @@
                     }
                     // HAREKET
                     if (!p && dist <= maxMove) {
+                        // KURAL: KANAT OYUNCUSU KISITLAMASI
+                        if(actor.role === 'LW' || actor.role === 'RW') {
+                            if(actor.hasMoved) { alert("Bu oyuncu maçta sadece 1 kez sprint atabilir ve bunu kullandı!"); return; }
+                            if(actor.c !== c) { alert("Kanat oyuncusu sadece kendi koridorunda ileri-geri gidebilir!"); return; }
+                        }
+                        
                         gameState.moves.atk = {type:'MOVE', r:r, c:c, actorId:actor.id}; 
                         commitMove(); return;
                     }
@@ -502,6 +517,12 @@
                     gameState.ballOwnerId=am.targetId; t="PAS BAŞARILI"; d="Atak devam ediyor."; 
                 } else { 
                     attacker.r = am.r; attacker.c = am.c; 
+                    
+                    // KURAL: Kanat oyuncusu hareket ettiyse hakkını yak
+                    if(attacker.role === 'LW' || attacker.role === 'RW') {
+                        attacker.hasMoved = true;
+                    }
+
                     if(attackerHasBall) {
                         if(am.r===0) { t="GOOOOOOOOL!"; d="Çizgiyi geçtin!"; gameOver = true; }
                         else { t="ÇALIM / KOŞU"; d="Boş alandasın."; }
@@ -519,8 +540,9 @@
         function showResult(t, d) {
             el('result-title').innerText = t; el('result-desc').innerHTML = d;
             const btn = el('result-btn');
-            const isOver = t.includes("GOL") || t.includes("TOP KAYBI");
-            if(isOver) { btn.innerText = "YENİ MAÇ"; btn.className = "btn btn-danger"; btn.onclick = () => location.reload(); }
+            // KURAL: Gol olunca oyun biter
+            const isOver = t.includes("GOL");
+            if(isOver) { btn.innerText = "OYUN BİTTİ - YENİ MAÇ"; btn.className = "btn btn-danger"; btn.onclick = () => location.reload(); }
             else { btn.innerText = "DEVAM ET"; btn.className = "btn"; btn.onclick = nextTurn; }
             hideWait(); show('result-screen');
         }
