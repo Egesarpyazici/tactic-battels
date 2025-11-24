@@ -1,4 +1,4 @@
-<html lang="tr">
+<<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -249,7 +249,7 @@
         // --- OYUN MOTORU & YENİ KADRO ---
         const ROWS = 7; const COLS = 5; let scenIdx = 0;
         
-        // 4 ATK (ST, 10, LW, RW) vs 4 DEF (GK, 3xDef)
+        // KADROLAR
         const SCENARIOS = [
             { 
                 atk: [
@@ -259,10 +259,10 @@
                     {r:5,c:4,l:'7', role:'RW'}    // Sağ Kanat
                 ], 
                 def: [
-                    {r:0,c:2,l:'GK', role:'GK'}, 
-                    {r:2,c:1,l:'4', role:'DEF'}, 
-                    {r:2,c:2,l:'5', role:'DEF'}, 
-                    {r:2,c:3,l:'3', role:'DEF'}
+                    {r:0,c:2,l:'GK', role:'GK'},  // Kaleci
+                    {r:2,c:1,l:'4', role:'CB'},   // Stoper 1
+                    {r:2,c:3,l:'5', role:'CB'},   // Stoper 2
+                    {r:3,c:2,l:'6', role:'CDM'}   // Ön Libero (YENİ)
                 ] 
             }
         ];
@@ -273,11 +273,11 @@
         function startGame() {
             const s = SCENARIOS[scenIdx];
             gameState.players = [];
-            // Role bilgisi ve hasMoved (kanat için) ekliyoruz
-            s.atk.forEach((p,i)=>gameState.players.push({id:`a${i}`, team:'atk', r:p.r, c:p.c, label:p.l, role:p.role, hasMoved:false}));
+            // Role bilgisi ve hasMoved (kanat için sprint hakkı)
+            s.atk.forEach((p,i)=>gameState.players.push({id:`a${i}`, team:'atk', r:p.r, c:p.c, label:p.l, role:p.role, sprintUsed:false}));
             s.def.forEach((p,i)=>gameState.players.push({id:`d${i}`, team:'def', r:p.r, c:p.c, label:p.l, role:p.role}));
             
-            // Topu 10 Numaraya ver (daha mantıklı başlangıç)
+            // Topu 10 Numaraya ver
             const playmaker = gameState.players.find(x=>x.role==='10');
             gameState.ballOwnerId = playmaker ? playmaker.id : gameState.players[0].id;
             
@@ -292,12 +292,10 @@
 
         function updateUI() {
             const s = el('status-text');
-            // Şut butonu kontrolü
             checkStrikerShot();
             
-            // GK Tahmin Modu Kontrolü
+            // GK Tahmin Modu
             if(myRole === 'def' && gameState.moves.atk && gameState.moves.atk.type === 'SHOT' && !gameState.moves.def) {
-                // Hücum şut çekti, Savunma köşe seçmeli
                 el('shot-title').innerText = "⚠️ KALEYE ŞUT! ⚠️";
                 el('shot-desc').innerText = "Kurtarmak için bir köşe seç!";
                 show('shot-screen');
@@ -315,22 +313,15 @@
             }
         }
 
-        // --- ŞUT MEKANİĞİ ---
         function checkStrikerShot() {
             el('btn-shoot-trigger').classList.remove('visible');
             if(myRole !== 'atk' || gameState.phase !== 'ATTACK_PLAN') return;
-
             const st = gameState.players.find(x => x.role === 'ST');
             if(!st || st.id !== gameState.ballOwnerId) return;
-
             // Önündeki 2 blok boş mu?
             const r1 = gameState.players.find(x => x.r === st.r-1 && x.c === st.c);
             const r2 = gameState.players.find(x => x.r === st.r-2 && x.c === st.c);
-
-            // Eğer önü boşsa ve kaleye belli bir mesafedeyse (örn: r <= 4)
-            if(!r1 && !r2 && st.r <= 5) {
-                el('btn-shoot-trigger').classList.add('visible');
-            }
+            if(!r1 && !r2 && st.r <= 5) el('btn-shoot-trigger').classList.add('visible');
         }
 
         function openShotMenu() {
@@ -342,12 +333,10 @@
         function confirmShot(side) {
             hide('shot-screen');
             if(myRole === 'atk') {
-                // Hücum şutu çekti (Side: L veya R)
                 gameState.moves.atk = { type: 'SHOT', side: side, actorId: gameState.ballOwnerId };
                 commitMove();
             } else {
-                // Savunma (Kaleci) köşeyi seçti
-                gameState.moves.def = { type: 'SAVE', side: side, actorId: 'GK' }; // GK ID'si dinamik bulunabilir ama basit tuttum
+                gameState.moves.def = { type: 'SAVE', side: side, actorId: 'GK' }; 
                 commitMove();
             }
         }
@@ -362,53 +351,54 @@
                     const p = gameState.players.find(x=>x.r===r && x.c===c);
                     
                     if(p) {
-                        // Rol etiketi ile token oluştur
                         const t = document.createElement('div'); t.className = `token ${p.team}`; 
                         t.innerHTML = `<span>${p.label}</span><span class="role-tag">${p.role}</span>`;
-                        
                         if(p.id===gameState.ballOwnerId) { t.innerHTML += `<div class="ball"></div>`; t.style.borderColor = "#fbbf24"; t.style.zIndex = "10"; }
                         if(gameState.selectedUnit===p.id) t.classList.add('selected');
                         d.appendChild(t);
                     }
                     
-                    // --- HÜCUM GÖRSELLERİ (ÖZELLEŞTİRİLMİŞ) ---
+                    // --- HÜCUM GÖRSELLERİ ---
                     if(myRole==='atk' && gameState.phase==='ATTACK_PLAN' && gameState.selectedUnit) {
                         const activeUnit = gameState.players.find(x=>x.id === gameState.selectedUnit);
                         if(activeUnit) {
                             const dist = Math.max(Math.abs(activeUnit.r-r), Math.abs(activeUnit.c-c));
                             const hasBall = (activeUnit.id === gameState.ballOwnerId);
 
-                            // ROL ÖZELLİKLERİ
+                            let passRange = (activeUnit.role === '10') ? 99 : 2;
+                            // Kanat Sprint Göstergesi
                             let moveRange = 1;
-                            let passRange = 2; // Default
+                            if((activeUnit.role === 'LW' || activeUnit.role === 'RW') && !activeUnit.sprintUsed) moveRange = 2;
 
-                            if(activeUnit.role === 'LW' || activeUnit.role === 'RW') {
-                                moveRange = 2; // Kanatlar Hızlı
-                                if(activeUnit.hasMoved) moveRange = 0; // KURAL: Zaten hareket ettiyse bir daha gidemez
-                            }
-                            if(activeUnit.role === '10') passRange = 99; // 10 Numara Global Pas
-
-                            // Hareket
-                            if(!p && dist <= moveRange) {
-                                // Kanat için sadece kendi sütunu
-                                if((activeUnit.role === 'LW' || activeUnit.role === 'RW') && activeUnit.c !== c) {
-                                    // Çapraz gösterme
-                                } else {
-                                    addMark(d,'m-move');
-                                }
-                            }
-                            
-                            // Pas
-                            if(hasBall && p && p.team==='atk' && p.id!==activeUnit.id && dist <= passRange) {
-                                addMark(d,'m-pass');
-                            }
+                            if(!p && dist <= moveRange) addMark(d,'m-move');
+                            if(hasBall && p && p.team==='atk' && p.id!==activeUnit.id && dist <= passRange) addMark(d,'m-pass');
                         }
                     }
 
-                    // Savunma (Aynı)
+                    // --- SAVUNMA GÖRSELLERİ ---
                     if(myRole==='def' && gameState.phase==='DEFENSE_PLAN' && gameState.selectedUnit) {
                         const df = gameState.players.find(x=>x.id===gameState.selectedUnit);
-                        if(df && df.team==='def' && Math.abs(df.r-r)<=1 && Math.abs(df.c-c)<=1) addMark(d,'m-block');
+                        if(df) {
+                            let canMove = false;
+                            // KALECİ: Kendi çizgisi (R=0) boyunca her yere
+                            if(df.role === 'GK') {
+                                if(r === 0) canMove = true; 
+                            }
+                            // CDM: Geniş Alan (3 kare)
+                            else if(df.role === 'CDM') {
+                                if(Math.max(Math.abs(df.r-r), Math.abs(df.c-c)) <= 3) canMove = true;
+                            }
+                            // STOPER: İlk 3 satır içinde (a,b,c) ve 2 kare mesafe
+                            else if(df.role === 'CB') {
+                                if(r <= 2 && Math.max(Math.abs(df.r-r), Math.abs(df.c-c)) <= 2) canMove = true;
+                            }
+                            // Diğerleri (Varsayılan)
+                            else {
+                                if(Math.abs(df.r-r)<=1 && Math.abs(df.c-c)<=1) canMove = true;
+                            }
+
+                            if(canMove) addMark(d, 'm-block');
+                        }
                     }
 
                     d.onclick = () => handleInp(r,c,p);
@@ -428,27 +418,21 @@
                     const isBallOwner = (actor.id === gameState.ballOwnerId);
                     const dist = Math.max(Math.abs(actor.r - r), Math.abs(actor.c - c));
 
-                    // ROL LİMİTLERİ
                     let maxPass = (actor.role === '10') ? 99 : 2;
-                    let maxMove = (actor.role === 'LW' || actor.role === 'RW') ? 2 : 1;
+                    let maxMove = 1;
+                    if((actor.role === 'LW' || actor.role === 'RW') && !actor.sprintUsed) maxMove = 2;
 
-                    // PAS
+                    // Pas
                     if (isBallOwner && p && p.team === 'atk' && p.id !== actor.id && dist <= maxPass) {
                         gameState.moves.atk = {type:'PASS', r:r, c:c, targetId:p.id, actorId:actor.id}; 
                         commitMove(); return;
                     }
-                    // SEÇİM DEĞİŞTİR
+                    // Seçim
                     if (p && p.team === 'atk' && p.id !== actor.id) {
                         gameState.selectedUnit = p.id; render(); return;
                     }
-                    // HAREKET
+                    // Hareket
                     if (!p && dist <= maxMove) {
-                        // KURAL: KANAT OYUNCUSU KISITLAMASI
-                        if(actor.role === 'LW' || actor.role === 'RW') {
-                            if(actor.hasMoved) { alert("Bu oyuncu maçta sadece 1 kez sprint atabilir ve bunu kullandı!"); return; }
-                            if(actor.c !== c) { alert("Kanat oyuncusu sadece kendi koridorunda ileri-geri gidebilir!"); return; }
-                        }
-                        
                         gameState.moves.atk = {type:'MOVE', r:r, c:c, actorId:actor.id}; 
                         commitMove(); return;
                     }
@@ -456,11 +440,24 @@
                 if(p && p.team === 'atk') { gameState.selectedUnit = p.id; render(); }
 
             } else {
-                // Savunma
+                // SAVUNMA INPUT
                 if(p && p.team==='def') { gameState.selectedUnit=p.id; render(); return; }
                 if(gameState.selectedUnit) {
                     const df = gameState.players.find(x=>x.id===gameState.selectedUnit);
-                    if(Math.abs(df.r-r)<=1 && Math.abs(df.c-c)<=1) { 
+                    let valid = false;
+
+                    // KURALLARA GÖRE HAREKET KONTROLÜ
+                    if(df.role === 'GK') {
+                        if(r === 0) valid = true; // Sadece kale çizgisinde
+                    } else if(df.role === 'CDM') {
+                        if(Math.max(Math.abs(df.r-r), Math.abs(df.c-c)) <= 3) valid = true; // Geniş alan
+                    } else if(df.role === 'CB') {
+                         if(r <= 2 && Math.max(Math.abs(df.r-r), Math.abs(df.c-c)) <= 2) valid = true; // Kutu içi esnek
+                    } else {
+                        if(Math.abs(df.r-r)<=1 && Math.abs(df.c-c)<=1) valid = true;
+                    }
+
+                    if(valid) { 
                         gameState.moves.def={r:r, c:c, actorId:df.id}; commitMove(); 
                     }
                 }
@@ -480,14 +477,13 @@
             let t="", d="", msg="";
             let gameOver = false;
 
-            // ÖZEL DURUM: ŞUT ve KURTARIŞ
+            // ŞUT & KURTARIŞ
             if(am.type === 'SHOT') {
                 if(dm.type === 'SAVE') {
                     if(am.side !== dm.side) {
                         t = "GOOOOOOOOL!"; d = "Kaleci ters köşe!"; gameOver = true;
                     } else {
                         t = "KURTARDI!"; d = "Kaleci köşeyi bildi! Top savunmaya geçti.";
-                        // Topu kaleciye verelim
                         const gk = gameState.players.find(x=>x.role==='GK');
                         if(gk) gameState.ballOwnerId = gk.id;
                     }
@@ -497,30 +493,47 @@
                 }
             }
 
-            // NORMAL HAREKET ÇÖZÜMLEMESİ
-            const ad = gameState.players.find(x=>x.id===dm.actorId);
-            const defStartR = ad.r; const defStartC = ad.c;
-            ad.r = dm.r; ad.c = dm.c; 
+            // HAREKET ÇÖZÜMLEME
+            const defActor = gameState.players.find(x=>x.id===dm.actorId);
+            const defStartR = defActor.r; const defStartC = defActor.c;
+            defActor.r = dm.r; defActor.c = dm.c; 
 
-            const attacker = gameState.players.find(x=>x.id === am.actorId);
-            const atkStartR = attacker.r; const atkStartC = attacker.c;
-            const blocked = (am.r===dm.r && am.c===dm.c);
+            const atkActor = gameState.players.find(x=>x.id === am.actorId);
+            const atkStartR = atkActor.r; const atkStartC = atkActor.c;
             
+            // ÇARPIŞMA KONTROLÜ (TACKLE)
+            let blocked = false;
+
+            // 1. Doğrudan üstüne gelme
+            if(am.r === dm.r && am.c === dm.c) blocked = true;
+
+            // 2. STOPER ÖZEL YETENEĞİ: "Çift Alan Kapatma"
+            // Stoper gittiği karenin yanındaki (merkeze doğru olan) kareyi de kapatır.
+            if(!blocked && defActor.role === 'CB') {
+                // Eğer sol taraftaysa (c<2) sağı, sağ taraftaysa (c>2) solu, ortadaysa rastgele bir yanını kapatır.
+                let secondaryC = dm.c + (dm.c < 2 ? 1 : -1); 
+                if(am.r === dm.r && am.c === secondaryC) {
+                    blocked = true;
+                    msg += "<br>(Stoper ikili sıkıştırma yaptı!)";
+                }
+            }
+
             const ballOwner = gameState.players.find(x=>x.id === gameState.ballOwnerId);
-            const attackerHasBall = (attacker.id === ballOwner.id);
+            const attackerHasBall = (atkActor.id === ballOwner.id);
 
             if(blocked) {
-                if(attackerHasBall) { t="TOP KAYBI!"; d="Savunma topu kaptı!"; }
-                else { t="BLOKAJ!"; d="Topsuz koşu engellendi."; attacker.r = atkStartR; attacker.c = atkStartC; }
+                if(attackerHasBall) { t="TOP KAYBI!"; d="Savunma topu kaptı!" + msg; }
+                else { t="BLOKAJ!"; d="Topsuz koşu engellendi." + msg; atkActor.r = atkStartR; atkActor.c = atkStartC; }
             } else {
                 if(am.type==='PASS') { 
                     gameState.ballOwnerId=am.targetId; t="PAS BAŞARILI"; d="Atak devam ediyor."; 
                 } else { 
-                    attacker.r = am.r; attacker.c = am.c; 
+                    atkActor.r = am.r; atkActor.c = am.c; 
                     
-                    // KURAL: Kanat oyuncusu hareket ettiyse hakkını yak
-                    if(attacker.role === 'LW' || attacker.role === 'RW') {
-                        attacker.hasMoved = true;
+                    // Kanat Sprint Harcaması
+                    if((atkActor.role === 'LW' || atkActor.role === 'RW')) {
+                        const dist = Math.max(Math.abs(am.r - atkStartR), Math.abs(am.c - atkStartC));
+                        if(dist > 1) atkActor.sprintUsed = true;
                     }
 
                     if(attackerHasBall) {
@@ -540,7 +553,6 @@
         function showResult(t, d) {
             el('result-title').innerText = t; el('result-desc').innerHTML = d;
             const btn = el('result-btn');
-            // KURAL: Gol olunca oyun biter
             const isOver = t.includes("GOL");
             if(isOver) { btn.innerText = "OYUN BİTTİ - YENİ MAÇ"; btn.className = "btn btn-danger"; btn.onclick = () => location.reload(); }
             else { btn.innerText = "DEVAM ET"; btn.className = "btn"; btn.onclick = nextTurn; }
